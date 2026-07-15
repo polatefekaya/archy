@@ -1,0 +1,12 @@
+{
+  "name": "@archy/louvain-sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0 <25.0.0" },
+  "scripts": { "start": "node worker.mjs", "test": "node --test test/*.test.mjs" },
+  "dependencies": {
+    "graphology": "0.26.0",
+    "graphology-communities-louvain": "2.0.2"
+  }
+}

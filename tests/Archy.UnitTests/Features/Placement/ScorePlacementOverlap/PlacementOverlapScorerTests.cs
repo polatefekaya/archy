@@ -1,0 +1,3 @@
+using Archy.Features.Placement.ScorePlacementOverlap;
+namespace Archy.UnitTests.Features.Placement.ScorePlacementOverlap;
+public sealed class PlacementOverlapScorerTests { [Fact] public void ScoreAbstainsForAmbiguousDependencyOverlap(){var r=new PlacementOverlapScorer().Score([new("a",.8),new("b",.7)],[new("left",["a"]),new("right",["b"])]);Assert.True(r.IsAbstention);Assert.Equal("Top placement candidates are too close.",r.Reason);} [Fact] public void ScoreRanksStrongOverlap(){var r=new PlacementOverlapScorer().Score([new("a",.9),new("b",.8),new("c",.1)],[new("core",["a","b"]),new("other",["c"])]);Assert.False(r.IsAbstention);Assert.Equal("core",r.Candidates[0].ClusterKey);} }

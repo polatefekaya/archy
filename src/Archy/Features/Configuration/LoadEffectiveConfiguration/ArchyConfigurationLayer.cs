@@ -3,19 +3,26 @@ namespace Archy.Features.Configuration.LoadEffectiveConfiguration;
 public sealed record ArchyConfigurationLayer(
     string? WorkspaceDisplayName,
     string? LocalStateRootPath,
-    string? CSharpLanguageServerCommand,
-    string[]? CSharpLanguageServerArguments,
+    LanguageServerProfileConfiguration[]? LanguageServerProfiles,
     bool? DependencyInjectionProviderEnabled,
     bool? MessagingProviderEnabled,
     bool? EntityFrameworkCoreProviderEnabled,
     bool? CacheProviderEnabled,
     bool? ConfigurationProviderEnabled,
+    ProviderPatternConfiguration[]? ProviderPatterns,
     LayerRuleConfiguration[]? Layers,
+    string[]? EnforcementHardEdgeKinds,
     string? ModelProvider,
     string? SummaryModel,
     string? EmbeddingModel,
     int? MaxRequestsPerRun,
     int? MaxTokensPerRun,
+    double? MaxCostUsdPerRun,
+    int? MaxConcurrentModelRequests,
+    int? ModelRateLimitCooldownSeconds,
+    bool? IncludeGeneratedMemoryNodes,
+    string[]? ImportantMemoryModulePaths,
+    AiSourceSharingMode? AiSourceSharingMode,
     string? JscpdCommand,
     string? LouvainCommand,
     string[]? ScopeInclude,
@@ -42,11 +49,9 @@ public sealed record ArchyConfigurationLayer(
                     ? current.LocalState.RootPath
                     : ResolvePath(LocalStateRootPath, sourcePath),
             },
-            CSharpLanguageServer = current.CSharpLanguageServer with
-            {
-                Command = CSharpLanguageServerCommand ?? current.CSharpLanguageServer.Command,
-                Arguments = CSharpLanguageServerArguments ?? current.CSharpLanguageServer.Arguments,
-            },
+            LanguageServerProfiles = LanguageServerProfiles is null
+                ? current.LanguageServerProfiles
+                : MergeLanguageServerProfiles(current.LanguageServerProfiles, LanguageServerProfiles),
             Providers = current.Providers with
             {
                 DependencyInjection = DependencyInjectionProviderEnabled ?? current.Providers.DependencyInjection,
@@ -55,7 +60,12 @@ public sealed record ArchyConfigurationLayer(
                 Cache = CacheProviderEnabled ?? current.Providers.Cache,
                 Configuration = ConfigurationProviderEnabled ?? current.Providers.Configuration,
             },
+            ProviderPatterns = ProviderPatterns ?? current.ProviderPatterns,
             Layers = Layers ?? current.Layers,
+            Enforcement = current.Enforcement with
+            {
+                HardEdgeKinds = EnforcementHardEdgeKinds ?? current.Enforcement.HardEdgeKinds,
+            },
             Model = current.Model with
             {
                 Provider = ModelProvider ?? current.Model.Provider,
@@ -63,6 +73,15 @@ public sealed record ArchyConfigurationLayer(
                 EmbeddingModel = EmbeddingModel ?? current.Model.EmbeddingModel,
                 MaxRequestsPerRun = MaxRequestsPerRun ?? current.Model.MaxRequestsPerRun,
                 MaxTokensPerRun = MaxTokensPerRun ?? current.Model.MaxTokensPerRun,
+                MaxCostUsdPerRun = MaxCostUsdPerRun ?? current.Model.MaxCostUsdPerRun,
+                MaxConcurrentRequests = MaxConcurrentModelRequests ?? current.Model.MaxConcurrentRequests,
+                RateLimitCooldownSeconds = ModelRateLimitCooldownSeconds ?? current.Model.RateLimitCooldownSeconds,
+            },
+            Memory = current.Memory with
+            {
+                IncludeGeneratedNodes = IncludeGeneratedMemoryNodes ?? current.Memory.IncludeGeneratedNodes,
+                ImportantModulePaths = ImportantMemoryModulePaths ?? current.Memory.ImportantModulePaths,
+                SourceSharing = AiSourceSharingMode ?? current.Memory.SourceSharing,
             },
             Sidecars = current.Sidecars with
             {
@@ -89,5 +108,18 @@ public sealed record ArchyConfigurationLayer(
         return Path.IsPathFullyQualified(configuredPath)
             ? Path.GetFullPath(configuredPath)
             : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourcePath)!, configuredPath));
+    }
+
+    private static LanguageServerProfileConfiguration[] MergeLanguageServerProfiles(
+        IReadOnlyList<LanguageServerProfileConfiguration> current,
+        IReadOnlyList<LanguageServerProfileConfiguration> updates)
+    {
+        var merged = current.ToDictionary(static profile => profile.Id, StringComparer.Ordinal);
+        foreach (var profile in updates)
+        {
+            merged[profile.Id] = profile;
+        }
+
+        return [.. merged.Values.OrderBy(static profile => profile.Id, StringComparer.Ordinal)];
     }
 }

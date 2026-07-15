@@ -1,0 +1,3 @@
+using Archy.Features.Decisions.ArchitectureDecisions;using Archy.Features.Placement.ApplyPlacementDecisionFeedback;using Archy.SharedKernel.Primitives;
+namespace Archy.UnitTests.Features.Placement.ApplyPlacementDecisionFeedback;
+public sealed class PlacementDecisionFeedbackPolicyTests { [Fact] public void EvaluateSuppressesOnlyTheExactIgnoredPlacementContext(){var d=new ArchitectureDecision("d","placement_review",DecisionResolution.Ignored,null,"user","x",null,1,[new ArchitectureTarget(ArchitectureTargetKind.PlacementFinding,"placement:one")],DateTimeOffset.UtcNow);var r=new PlacementDecisionFeedbackPolicy().Evaluate("placement:two",[d]);Assert.False(r.SuppressExactContext);Assert.Empty(r.DecisionIds);} }

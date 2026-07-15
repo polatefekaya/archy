@@ -10,4 +10,5 @@ public sealed record GraphNodeFact(
     int? EndLine,
     string Provider,
     double Confidence,
-    string EvidenceJson);
+    string EvidenceJson,
+    string ContentHash);

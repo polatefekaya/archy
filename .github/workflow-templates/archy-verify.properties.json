@@ -1,0 +1,6 @@
+{
+  "name": "Archy verification",
+  "description": "Runs Archy's required architecture gate and uploads the SARIF report.",
+  "iconName": "check-circle",
+  "categories": ["Code Scanning", "Continuous integration"]
+}

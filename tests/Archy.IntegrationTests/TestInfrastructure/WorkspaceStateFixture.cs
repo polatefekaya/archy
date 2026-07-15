@@ -1,4 +1,4 @@
-using Archy.Features.Storage.InitializeWorkspaceDatabase;
+using Archy.Features.Storage.WorkspaceDatabase.Initialize;
 using Archy.Features.Workspaces.AcquireWorkspaceLock;
 using Archy.Features.Workspaces.InitializeWorkspace;
 
@@ -15,7 +15,7 @@ internal sealed class WorkspaceStateFixture : IDisposable
             TestConfigurationFactory.CreateLoader(),
             new WorkspaceStateLayout(),
             new WorkspaceLockManager(TimeProvider.System),
-            new WorkspaceManifestStore(TimeProvider.System),
+            new WorkspaceManifestRepository(TimeProvider.System),
             new WorkspaceDatabaseInitializer(TimeProvider.System));
     }
 
@@ -25,11 +25,14 @@ internal sealed class WorkspaceStateFixture : IDisposable
 
     public InitializeWorkspaceHandler InitializeHandler { get; }
 
-    public static WorkspaceStateFixture Create()
+    public static WorkspaceStateFixture Create(bool stateRootWithinRepository = false)
     {
-        var stateRoot = Path.Combine(Path.GetTempPath(), $"archy-state-{Guid.NewGuid():N}");
+        var repository = TemporaryRepository.Create();
+        var stateRoot = stateRootWithinRepository
+            ? Path.Combine(repository.Root, ".archy-test-state")
+            : Path.Combine(Path.GetTempPath(), $"archy-state-{Guid.NewGuid():N}");
         Directory.CreateDirectory(stateRoot);
-        return new WorkspaceStateFixture(TemporaryRepository.Create(), stateRoot);
+        return new WorkspaceStateFixture(repository, stateRoot);
     }
 
     public ValueTask<Archy.SharedKernel.Primitives.Result<InitializedWorkspace>> InitializeAsync() =>

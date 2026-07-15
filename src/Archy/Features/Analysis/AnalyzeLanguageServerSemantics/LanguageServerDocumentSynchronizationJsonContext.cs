@@ -1,0 +1,8 @@
+using System.Text.Json.Serialization;
+
+namespace Archy.Features.Analysis.AnalyzeLanguageServerSemantics;
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(LanguageServerDocumentSynchronizer.LspDidOpenTextDocumentParameters))]
+[JsonSerializable(typeof(LanguageServerDocumentSynchronizer.LspDidCloseTextDocumentParameters))]
+internal sealed partial class LanguageServerDocumentSynchronizationJsonContext : JsonSerializerContext;

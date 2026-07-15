@@ -107,6 +107,13 @@ public sealed class ArchyConfigurationLoader(
                     $"{loadedLayer.Path}: storage.state_root is only permitted in user or explicitly selected configuration; repository configuration cannot redirect local state."));
         }
 
+        if (loadedLayer.Kind != ConfigurationSourceKind.Repository && loadedLayer.Layer.AiSourceSharingMode is not null)
+        {
+            return ResultFactory.Failure<ArchyConfiguration>(
+                Problem.Validation(
+                    $"{loadedLayer.Path}: memory.source_sharing is repository-owned consent and is permitted only in the repository's archy.toml."));
+        }
+
         try
         {
             var merged = loadedLayer.Layer.ApplyTo(current, loadedLayer.Path);
@@ -209,10 +216,60 @@ public sealed class ArchyConfigurationLoader(
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        if (configuration.CSharpLanguageServer.Command is null && configuration.CSharpLanguageServer.Arguments.Length > 0)
+        if (configuration.LanguageServerProfiles is null ||
+            configuration.LanguageServerProfiles.Length == 0 ||
+            configuration.LanguageServerProfiles.Any(static profile =>
+                profile is null ||
+                string.IsNullOrWhiteSpace(profile.Id) ||
+                string.IsNullOrWhiteSpace(profile.LanguageId) ||
+                string.IsNullOrWhiteSpace(profile.Command) ||
+                string.IsNullOrWhiteSpace(profile.SymbolIdentityPrefix) ||
+                profile.Extensions is null || profile.Extensions.Length == 0 ||
+                profile.Extensions.Any(static extension => string.IsNullOrWhiteSpace(extension)) ||
+                profile.Markers is null ||
+                profile.Arguments is null || profile.Arguments.Any(static argument => argument is null || argument.Contains('\0')) ||
+                profile.SymbolKinds is null || profile.SymbolKinds.Length == 0 ||
+                profile.SymbolKinds.Any(static mapping => mapping is null || string.IsNullOrWhiteSpace(mapping.SemanticKind) || mapping.LspKinds is null || mapping.LspKinds.Length == 0) ||
+                profile.MaxSymbolQueries is < 1 or > 100_000 ||
+                profile.SymbolKinds.SelectMany(static mapping => mapping.LspKinds).Distinct().Count() != profile.SymbolKinds.Sum(static mapping => mapping.LspKinds.Length)) ||
+            configuration.LanguageServerProfiles.Select(static profile => profile.Id).Distinct(StringComparer.Ordinal).Count() != configuration.LanguageServerProfiles.Length)
         {
             return ResultFactory.Failure<ArchyConfiguration>(
-                Problem.Validation("language_servers.csharp.args requires language_servers.csharp.command."));
+                Problem.Validation("language_server_profiles must contain uniquely identified, complete declarative LSP profiles."));
+        }
+
+        var layersProblem = LayerRuleConfigurationValidator.Validate(configuration.Layers);
+        if (layersProblem is not null)
+        {
+            return ResultFactory.Failure<ArchyConfiguration>(layersProblem);
+        }
+
+        var enforcementProblem = ArchitectureEnforcementConfigurationValidator.Validate(configuration.Enforcement);
+        if (enforcementProblem is not null)
+        {
+            return ResultFactory.Failure<ArchyConfiguration>(enforcementProblem);
+        }
+
+        if (configuration.Memory.ImportantModulePaths is null ||
+            configuration.Memory.ImportantModulePaths.Any(static path =>
+                string.IsNullOrWhiteSpace(path) ||
+                Path.IsPathRooted(path) ||
+                path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Any(static part => part is "." or "..")) ||
+            configuration.Memory.ImportantModulePaths.Distinct(StringComparer.Ordinal).Count() != configuration.Memory.ImportantModulePaths.Length)
+        {
+            return ResultFactory.Failure<ArchyConfiguration>(
+                Problem.Validation("memory.important_module_paths must contain unique, repository-relative module paths."));
+        }
+
+        if (configuration.Model.MaxRequestsPerRun is < 1 or > 10_000 ||
+            configuration.Model.MaxTokensPerRun is < 1 or > 10_000_000 ||
+            double.IsNaN(configuration.Model.MaxCostUsdPerRun) || double.IsInfinity(configuration.Model.MaxCostUsdPerRun) ||
+            configuration.Model.MaxCostUsdPerRun is <= 0 or > 100_000 ||
+            configuration.Model.MaxConcurrentRequests is < 1 or > 100 ||
+            configuration.Model.RateLimitCooldownSeconds is < 0 or > 86_400)
+        {
+            return ResultFactory.Failure<ArchyConfiguration>(
+                Problem.Validation("model request, token, cost, concurrency, and cooldown limits must be within supported safety bounds."));
         }
 
         if (configuration.HealthWeights.Architecture +

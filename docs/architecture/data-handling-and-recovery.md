@@ -2,6 +2,8 @@
 
 Local state may contain repository-relative paths, source ranges, graph facts, hashes, rule outcomes, decisions, summaries, embeddings, and model-request metadata. It must never contain OpenAI keys or unredacted secret values.
 
+Graph revisions, summary versions, decisions, sessions, session events, duplicate observations, cluster revisions, and health snapshots are durable provenance. Summary, decision, event, duplicate-observation, cluster-revision, and health-snapshot rows are append-only; a session end is represented by a final ordered event rather than overwriting its start record. Summary identities retain only a pointer to their newest immutable version.
+
 Source fragments leave the machine only for an explicitly enabled model operation after redaction. Full source and repository archives are never default model input. Telemetry is off by default.
 
 | Failure | Required behavior |

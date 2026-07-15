@@ -2,8 +2,8 @@
 
 ## Decision
 
-The initial release analyzes C#/.NET repositories. Provider contracts are language-independent, but a new language requires a parser/LSP adapter, source-range model, and language-specific string normalization; configuration alone is not language support.
+The initial release's syntax and framework providers analyze C#/.NET repositories. Standard-LSP declaration-symbol analysis is language-independent: a new language requires a declarative profile, not a host adapter. Framework-specific syntax enrichment remains a separate provider concern.
 
 ## Consequences
 
-The initial configuration validates only `language_servers.csharp`. C# provider coverage reports explicit static facts and exposes unsupported dynamic behavior as unresolved rather than guessed.
+The configuration validates `language_server_profiles` uniformly. C# provider coverage reports explicit static facts and exposes unsupported dynamic behavior as unresolved rather than guessed.

@@ -1,5 +1,10 @@
-using Archy.Features.Configuration;
-using Archy.Features.Workspaces;
+using Archy.Features.CommandLine.Analysis;
+using Archy.Features.CommandLine.Architecture;
+using Archy.Features.CommandLine.Configuration;
+using Archy.Features.CommandLine.Inventory;
+using Archy.Features.CommandLine.Integrations;
+using Archy.Features.CommandLine.Workspace;
+using Archy.Features.CommandLine.WorkspaceDatabase;
 using Mediator;
 
 namespace Archy.Features.CommandLine;
@@ -31,6 +36,13 @@ public static class ArchyCli
         {
             "workspace" => WorkspaceCli.RunAsync(args[1..], mediator, cancellationToken),
             "config" => ConfigurationCli.RunAsync(args[1..], mediator, cancellationToken),
+            "db" => WorkspaceDatabaseCli.RunAsync(args[1..], mediator, cancellationToken),
+            "inventory" => SourceInventoryCli.RunAsync(args[1..], mediator, cancellationToken),
+            "analyze" => AnalyzeWorkspaceCli.RunAsync(args[1..], mediator, cancellationToken),
+            "verify" => VerifyArchitectureCli.RunAsync(args[1..], mediator, cancellationToken),
+            "baseline" => ArchitectureBaselineCli.RunAsync(args[1..], mediator, cancellationToken),
+            "exception" => ArchitectureExceptionCli.RunAsync(args[1..], mediator, cancellationToken),
+            "hooks" => GitHooksCli.RunAsync(args[1..], mediator, cancellationToken),
             _ => UnknownCommandAsync(),
         };
     }
@@ -51,5 +63,12 @@ public static class ArchyCli
         Console.WriteLine("  archy workspace locate [--path <path>] [--json]");
         Console.WriteLine("  archy workspace init [--path <path>] [--state-root <path>] [--config <path>] [--json]");
         Console.WriteLine("  archy config show [--path <path>] [--config <path>] [--state-root <path>] [--json]");
+        Console.WriteLine("  archy inventory [--path <path>] [--state-root <path>] [--config <path>] [--json]");
+        Console.WriteLine("  archy analyze [--path <path>] [--state-root <path>] [--config <path>] [--json]");
+        Console.WriteLine("  archy verify [--path <path>] [--state-root <path>] [--config <path>] [--json | --sarif [--output <path>]]");
+        Console.WriteLine("  archy baseline accept [--path <path>] [--state-root <path>] [--config <path>] [--json]");
+        Console.WriteLine("  archy exception accept --finding <key> --author <author> --reason <reason> --review-at <ISO-8601> --expires-at <ISO-8601> [--path <path>] [--state-root <path>] [--config <path>] [--json]");
+        Console.WriteLine("  archy hooks install|uninstall|status [--path <path>] [--json]");
+        Console.WriteLine("  archy db check|backup|restore|vacuum|diagnostics [--path <path>] [--state-root <path>] [--config <path>] [--json]");
     }
 }

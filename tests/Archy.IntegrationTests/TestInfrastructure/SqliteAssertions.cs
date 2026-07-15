@@ -9,14 +9,20 @@ internal static class SqliteAssertions
         await using var connection = await OpenAsync(databasePath);
 
         Assert.Equal(
-            3L,
-            await ScalarLongAsync(connection, "SELECT COUNT(*) FROM schema_migrations WHERE version IN (1, 2, 3);"));
+            17L,
+            await ScalarLongAsync(connection, "SELECT COUNT(*) FROM schema_migrations WHERE version IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);"));
+        Assert.Equal(
+            17L,
+            await ScalarLongAsync(
+                connection,
+                "SELECT COUNT(*) FROM schema_migrations WHERE name IS NOT NULL AND checksum IS NOT NULL AND length(checksum) = 64;"));
         Assert.Equal(
             1L,
             await ScalarLongAsync(
                 connection,
                 "SELECT COUNT(*) FROM repositories WHERE workspace_id = $workspaceId;",
                 ("$workspaceId", workspaceId)));
+        await AssertActiveGraphRevisionAsync(databasePath, workspaceId, expectedRevision: null);
     }
 
     public static async Task AssertAnalysisRunAsync(
@@ -78,6 +84,20 @@ internal static class SqliteAssertions
                 connection,
                 "SELECT COUNT(*) FROM graph_edges WHERE revision = $revision;",
                 ("$revision", revision)));
+    }
+
+    public static async Task AssertActiveGraphRevisionAsync(
+        string databasePath,
+        string workspaceId,
+        long? expectedRevision)
+    {
+        await using var connection = await OpenAsync(databasePath);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT active_graph_revision FROM workspace_graph_states WHERE workspace_id = $workspaceId;";
+        command.Parameters.AddWithValue("$workspaceId", workspaceId);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync(), "The workspace graph state was not persisted.");
+        Assert.Equal(expectedRevision, reader.IsDBNull(0) ? null : reader.GetInt64(0));
     }
 
     public static async Task AssertGraphEdgeAsync(

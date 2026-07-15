@@ -1,0 +1,51 @@
+name: Archy verification
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  verify:
+    name: Archy / verify
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - id: archy
+        name: Verify architecture
+        continue-on-error: true
+        uses: polatefekaya/archy/actions/archy-verify@v0.1.0
+        with:
+          version: ${{ vars.ARCHY_VERSION }}
+          sha256: ${{ vars.ARCHY_SHA256 }}
+          sarif-output: artifacts/archy.sarif
+
+      - name: Upload Archy SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archy-sarif
+          path: artifacts/archy.sarif
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('artifacts/archy.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: artifacts/archy.sarif
+          category: archy-architecture
+
+      - name: Enforce Archy verification result
+        if: always() && steps.archy.outcome == 'failure'
+        shell: sh
+        run: exit 1

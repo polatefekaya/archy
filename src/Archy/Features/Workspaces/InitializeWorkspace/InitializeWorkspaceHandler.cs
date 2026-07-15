@@ -1,6 +1,6 @@
 using Archy.Features.Configuration.LoadEffectiveConfiguration;
 using Archy.Features.Workspaces.AcquireWorkspaceLock;
-using Archy.Features.Storage.InitializeWorkspaceDatabase;
+using Archy.Features.Storage.WorkspaceDatabase.Initialize;
 using Archy.Features.Workspaces.LocateWorkspace;
 using Archy.SharedKernel.Primitives;
 using Mediator;
@@ -12,7 +12,7 @@ public sealed class InitializeWorkspaceHandler(
     IArchyConfigurationLoader configurationLoader,
     IWorkspaceStateLayout stateLayout,
     IWorkspaceLockManager workspaceLockManager,
-    IWorkspaceManifestStore manifestStore,
+    IWorkspaceManifestRepository manifestRepository,
     IWorkspaceDatabaseInitializer databaseInitializer)
     : IRequestHandler<InitializeWorkspaceCommand, Result<InitializedWorkspace>>
 {
@@ -56,7 +56,7 @@ public sealed class InitializeWorkspaceHandler(
         }
 
         using var lease = workspaceLock.Value;
-        var storedManifest = await manifestStore.LoadOrCreateAsync(
+        var storedManifest = await manifestRepository.LoadOrCreateAsync(
             location.Value,
             workspace.Value,
             cancellationToken);

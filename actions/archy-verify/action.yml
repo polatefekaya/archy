@@ -1,0 +1,74 @@
+name: Archy verify
+description: Download or invoke a pinned Archy binary, run canonical verification, and emit a SARIF report.
+author: Archy maintainers
+
+inputs:
+  version:
+    description: Released Archy version, required unless binary-path is supplied.
+    required: false
+  sha256:
+    description: SHA-256 digest for the released Archy archive, required unless binary-path is supplied.
+    required: false
+  binary-path:
+    description: Trusted executable Archy path; bypasses release download.
+    required: false
+  repository-root:
+    description: Repository checkout to verify.
+    required: false
+    default: .
+  sarif-output:
+    description: Repository-relative path for the resulting SARIF file.
+    required: false
+    default: artifacts/archy.sarif
+  state-root:
+    description: Disposable local-state root. Empty uses the runner temporary directory.
+    required: false
+  release-base-url:
+    description: Optional mirror root with Archy's documented release layout.
+    required: false
+
+outputs:
+  sarif-path:
+    description: SARIF path passed to the CI entrypoint.
+    value: ${{ steps.verify.outputs.sarif-path }}
+  exit-code:
+    description: Canonical Archy verify exit code.
+    value: ${{ steps.verify.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - id: verify
+      name: Run Archy verification
+      shell: sh
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_SHA256: ${{ inputs.sha256 }}
+        INPUT_BINARY_PATH: ${{ inputs.binary-path }}
+        INPUT_REPOSITORY_ROOT: ${{ inputs.repository-root }}
+        INPUT_SARIF_OUTPUT: ${{ inputs.sarif-output }}
+        INPUT_STATE_ROOT: ${{ inputs.state-root }}
+        INPUT_RELEASE_BASE_URL: ${{ inputs.release-base-url }}
+      run: |
+        set +e
+        export ARCHY_VERSION="$INPUT_VERSION"
+        export ARCHY_SHA256="$INPUT_SHA256"
+        export ARCHY_REPOSITORY_ROOT="$INPUT_REPOSITORY_ROOT"
+        export ARCHY_SARIF_OUTPUT="$INPUT_SARIF_OUTPUT"
+        if [ -n "$INPUT_BINARY_PATH" ]; then
+          export ARCHY_BIN="$INPUT_BINARY_PATH"
+        fi
+        if [ -n "$INPUT_STATE_ROOT" ]; then
+          export ARCHY_STATE_ROOT="$INPUT_STATE_ROOT"
+        else
+          export ARCHY_STATE_ROOT="$RUNNER_TEMP/archy-state"
+        fi
+        if [ -n "$INPUT_RELEASE_BASE_URL" ]; then
+          export ARCHY_RELEASE_BASE_URL="$INPUT_RELEASE_BASE_URL"
+        fi
+        sh "$GITHUB_ACTION_PATH/../../scripts/ci/verify.sh"
+        exit_code=$?
+        set -e
+        printf 'sarif-path=%s\n' "$INPUT_SARIF_OUTPUT" >> "$GITHUB_OUTPUT"
+        printf 'exit-code=%s\n' "$exit_code" >> "$GITHUB_OUTPUT"
+        exit "$exit_code"

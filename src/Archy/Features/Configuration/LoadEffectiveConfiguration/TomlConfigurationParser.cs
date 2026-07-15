@@ -19,7 +19,7 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
         }
 
         var reader = new TomlConfigurationReader(sourcePath);
-        reader.EnsureAllowed(root, "root", "schema_version", "workspace", "storage", "language_servers", "providers", "layers", "model", "sidecars", "scope", "health_weights");
+        reader.EnsureAllowed(root, "root", "schema_version", "workspace", "storage", "language_server_profiles", "providers", "provider_patterns", "layers", "enforcement", "model", "memory", "sidecars", "scope", "health_weights");
 
         var schemaVersion = reader.OptionalInt(root, "schema_version", "root");
         if (schemaVersion is null)
@@ -43,20 +43,6 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
             reader.EnsureAllowed(storage, "storage", "state_root");
         }
 
-        var languageServers = reader.OptionalTable(root, "language_servers", "root");
-        var csharpLanguageServer = languageServers is null
-            ? null
-            : reader.OptionalTable(languageServers, "csharp", "language_servers");
-        if (languageServers is not null)
-        {
-            reader.EnsureAllowed(languageServers, "language_servers", "csharp");
-        }
-
-        if (csharpLanguageServer is not null)
-        {
-            reader.EnsureAllowed(csharpLanguageServer, "language_servers.csharp", "command", "args");
-        }
-
         var providers = reader.OptionalTable(root, "providers", "root");
         if (providers is not null)
         {
@@ -66,7 +52,13 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
         var model = reader.OptionalTable(root, "model", "root");
         if (model is not null)
         {
-            reader.EnsureAllowed(model, "model", "provider", "summary_model", "embedding_model", "max_requests_per_run", "max_tokens_per_run");
+            reader.EnsureAllowed(model, "model", "provider", "summary_model", "embedding_model", "max_requests_per_run", "max_tokens_per_run", "max_cost_usd_per_run", "max_concurrent_requests", "rate_limit_cooldown_seconds");
+        }
+
+        var memory = reader.OptionalTable(root, "memory", "root");
+        if (memory is not null)
+        {
+            reader.EnsureAllowed(memory, "memory", "include_generated_nodes", "important_module_paths", "source_sharing");
         }
 
         var sidecars = reader.OptionalTable(root, "sidecars", "root");
@@ -87,8 +79,18 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
             reader.EnsureAllowed(healthWeights, "health_weights", "architecture", "duplicates", "documentation", "decisions");
         }
 
+        var enforcement = reader.OptionalTable(root, "enforcement", "root");
+        if (enforcement is not null)
+        {
+            reader.EnsureAllowed(enforcement, "enforcement", "hard_edge_kinds");
+        }
+
         var layers = reader.OptionalTableArray(root, "layers", "root");
         var parsedLayers = ParseLayers(reader, layers);
+        var patterns = reader.OptionalTableArray(root, "provider_patterns", "root");
+        var parsedPatterns = ParseProviderPatterns(reader, patterns);
+        var languageServerProfiles = reader.OptionalTableArray(root, "language_server_profiles", "root");
+        var parsedLanguageServerProfiles = ParseLanguageServerProfiles(reader, languageServerProfiles);
 
         var modelProvider = reader.OptionalString(model, "provider", "model");
         if (modelProvider is not null && modelProvider is not ("openai" or "disabled"))
@@ -96,22 +98,31 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
             reader.AddError("model.provider must be either 'openai' or 'disabled'.");
         }
 
+        var sourceSharing = ParseAiSourceSharingMode(reader, reader.OptionalString(memory, "source_sharing", "memory"));
+
         var layer = new ArchyConfigurationLayer(
             WorkspaceDisplayName: reader.OptionalString(workspace, "display_name", "workspace"),
             LocalStateRootPath: reader.OptionalString(storage, "state_root", "storage"),
-            CSharpLanguageServerCommand: reader.OptionalString(csharpLanguageServer, "command", "language_servers.csharp"),
-            CSharpLanguageServerArguments: reader.OptionalStringArray(csharpLanguageServer, "args", "language_servers.csharp"),
+            LanguageServerProfiles: parsedLanguageServerProfiles,
             DependencyInjectionProviderEnabled: reader.OptionalBoolean(providers, "dependency_injection", "providers"),
             MessagingProviderEnabled: reader.OptionalBoolean(providers, "messaging", "providers"),
             EntityFrameworkCoreProviderEnabled: reader.OptionalBoolean(providers, "entity_framework_core", "providers"),
             CacheProviderEnabled: reader.OptionalBoolean(providers, "cache", "providers"),
             ConfigurationProviderEnabled: reader.OptionalBoolean(providers, "configuration", "providers"),
+            ProviderPatterns: parsedPatterns,
             Layers: parsedLayers,
+            EnforcementHardEdgeKinds: reader.OptionalStringArray(enforcement, "hard_edge_kinds", "enforcement"),
             ModelProvider: modelProvider,
             SummaryModel: reader.OptionalString(model, "summary_model", "model"),
             EmbeddingModel: reader.OptionalString(model, "embedding_model", "model"),
             MaxRequestsPerRun: reader.OptionalInt(model, "max_requests_per_run", "model"),
             MaxTokensPerRun: reader.OptionalInt(model, "max_tokens_per_run", "model"),
+            MaxCostUsdPerRun: reader.OptionalDouble(model, "max_cost_usd_per_run", "model"),
+            MaxConcurrentModelRequests: reader.OptionalInt(model, "max_concurrent_requests", "model"),
+            ModelRateLimitCooldownSeconds: reader.OptionalInt(model, "rate_limit_cooldown_seconds", "model"),
+            IncludeGeneratedMemoryNodes: reader.OptionalBoolean(memory, "include_generated_nodes", "memory"),
+            ImportantMemoryModulePaths: reader.OptionalStringArray(memory, "important_module_paths", "memory"),
+            AiSourceSharingMode: sourceSharing,
             JscpdCommand: reader.OptionalString(sidecars, "jscpd_command", "sidecars"),
             LouvainCommand: reader.OptionalString(sidecars, "louvain_command", "sidecars"),
             ScopeInclude: reader.OptionalStringArray(scope, "include", "scope"),
@@ -124,6 +135,28 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
         ValidateLayer(reader, layer);
 
         return reader.Complete(layer);
+    }
+
+    private static AiSourceSharingMode? ParseAiSourceSharingMode(TomlConfigurationReader reader, string? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        return value switch
+        {
+            "disabled" => AiSourceSharingMode.Disabled,
+            "summaries_only" => AiSourceSharingMode.SummariesOnly,
+            "summaries_and_embeddings" => AiSourceSharingMode.SummariesAndEmbeddings,
+            _ => AddInvalidAiSourceSharingMode(reader),
+        };
+    }
+
+    private static AiSourceSharingMode? AddInvalidAiSourceSharingMode(TomlConfigurationReader reader)
+    {
+        reader.AddError("memory.source_sharing must be disabled, summaries_only, or summaries_and_embeddings.");
+        return null;
     }
 
     private static LayerRuleConfiguration[]? ParseLayers(
@@ -154,9 +187,25 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
                     reader.AddError($"{location}.name duplicates the layer '{name}'.");
                 }
 
+                if (!LayerRuleConfigurationValidator.IsLayerName(name))
+                {
+                    reader.AddError($"{location}.name must be a trimmed, non-control layer name no longer than 128 characters.");
+                }
+
                 if (include.Length == 0)
                 {
                     reader.AddError($"{location}.include must contain at least one repository-relative pattern.");
+                }
+                else if (include.Any(static pattern => !LayerRuleConfigurationValidator.IsRepositoryRelativePattern(pattern)) || include.Distinct(StringComparer.Ordinal).Count() != include.Length)
+                {
+                    reader.AddError($"{location}.include must contain unique repository-relative glob patterns.");
+                }
+
+                if (mayDependOn.Any(static dependency => !LayerRuleConfigurationValidator.IsLayerName(dependency)) ||
+                    mayDependOn.Distinct(StringComparer.Ordinal).Count() != mayDependOn.Length ||
+                    mayDependOn.Contains(name, StringComparer.Ordinal))
+                {
+                    reader.AddError($"{location}.may_depend_on must contain unique declared layer names other than itself.");
                 }
 
                 parsedLayers.Add(new LayerRuleConfiguration(name, include, mayDependOn));
@@ -165,14 +214,174 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
             index++;
         }
 
+        var declaredNames = parsedLayers.Select(static layer => layer.Name).ToHashSet(StringComparer.Ordinal);
+        for (var layerIndex = 0; layerIndex < parsedLayers.Count; layerIndex++)
+        {
+            var layer = parsedLayers[layerIndex];
+            foreach (var dependency in layer.MayDependOn.Where(dependency => !declaredNames.Contains(dependency)))
+            {
+                reader.AddError($"layers[{layerIndex}].may_depend_on references undeclared layer '{dependency}'.");
+            }
+        }
+
         return [.. parsedLayers];
+    }
+
+    private static ProviderPatternConfiguration[]? ParseProviderPatterns(
+        TomlConfigurationReader reader,
+        TomlTableArray? patterns)
+    {
+        if (patterns is null)
+        {
+            return null;
+        }
+
+        var parsed = new List<ProviderPatternConfiguration>(patterns.Count);
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+        foreach (var pattern in patterns)
+        {
+            var location = $"provider_patterns[{index}]";
+            reader.EnsureAllowed(pattern, location, "id", "framework", "match_kind", "member", "type", "capture_name", "capture_argument_index");
+            var id = reader.RequiredString(pattern, "id", location);
+            var framework = reader.RequiredString(pattern, "framework", location);
+            var matchKind = reader.RequiredString(pattern, "match_kind", location);
+            var member = reader.RequiredString(pattern, "member", location);
+            var captureName = reader.OptionalString(pattern, "capture_name", location);
+            var captureArgumentIndex = reader.OptionalInt(pattern, "capture_argument_index", location);
+            if (id is not null && framework is not null && matchKind is not null && member is not null)
+            {
+                if (!identifiers.Add(id))
+                {
+                    reader.AddError($"{location}.id duplicates provider pattern '{id}'.");
+                }
+
+                if (matchKind is not ("invocation" or "type" or "attribute"))
+                {
+                    reader.AddError($"{location}.match_kind must be invocation, type, or attribute.");
+                }
+
+                if (captureArgumentIndex is < 0 || (captureArgumentIndex is null && captureName is not null) || (captureArgumentIndex is not null && captureName is null))
+                {
+                    reader.AddError($"{location}.capture_name and capture_argument_index must be specified together, with a non-negative index.");
+                }
+
+                parsed.Add(new ProviderPatternConfiguration(
+                    id,
+                    framework,
+                    matchKind,
+                    member,
+                    reader.OptionalString(pattern, "type", location),
+                    captureName,
+                    captureArgumentIndex));
+            }
+
+            index++;
+        }
+
+        return [.. parsed];
+    }
+
+    private static LanguageServerProfileConfiguration[]? ParseLanguageServerProfiles(
+        TomlConfigurationReader reader,
+        TomlTableArray? profiles)
+    {
+        if (profiles is null)
+        {
+            return null;
+        }
+
+        var parsed = new List<LanguageServerProfileConfiguration>(profiles.Count);
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+        foreach (var profile in profiles)
+        {
+            var location = $"language_server_profiles[{index}]";
+            reader.EnsureAllowed(profile, location, "id", "language_id", "extensions", "markers", "command", "args", "symbol_identity_prefix", "symbol_kinds", "max_symbol_queries");
+            var id = reader.RequiredString(profile, "id", location);
+            var languageId = reader.RequiredString(profile, "language_id", location);
+            var extensions = reader.OptionalStringArray(profile, "extensions", location) ?? [];
+            var markers = reader.OptionalStringArray(profile, "markers", location) ?? [];
+            var command = reader.RequiredString(profile, "command", location);
+            var arguments = reader.OptionalStringArray(profile, "args", location) ?? [];
+            var symbolIdentityPrefix = reader.RequiredString(profile, "symbol_identity_prefix", location);
+            var maxSymbolQueries = reader.OptionalInt(profile, "max_symbol_queries", location) ?? 10_000;
+            var symbolKinds = ParseLanguageServerSymbolKinds(reader, reader.OptionalTable(profile, "symbol_kinds", location), location);
+
+            if (id is not null && languageId is not null && command is not null && symbolIdentityPrefix is not null)
+            {
+                if (!identifiers.Add(id))
+                {
+                    reader.AddError($"{location}.id duplicates language-server profile '{id}'.");
+                }
+
+                if (extensions.Length == 0 || extensions.Any(static extension => string.IsNullOrWhiteSpace(extension) || extension[0] != '.' || extension.IndexOfAny(['/', '\\', '*', '?']) >= 0))
+                {
+                    reader.AddError($"{location}.extensions must contain one or more file extensions such as '.cs'.");
+                }
+
+                if (markers.Any(static marker => string.IsNullOrWhiteSpace(marker) || Path.IsPathFullyQualified(marker) || marker.Split(['/', '\\'], StringSplitOptions.None).Any(static segment => segment == "..")))
+                {
+                    reader.AddError($"{location}.markers must contain only repository-relative marker patterns.");
+                }
+
+                if (symbolKinds.Length == 0)
+                {
+                    reader.AddError($"{location}.symbol_kinds must map at least one semantic kind to LSP kind numbers.");
+                }
+
+                if (maxSymbolQueries is < 1 or > 100_000)
+                {
+                    reader.AddError($"{location}.max_symbol_queries must be between 1 and 100000.");
+                }
+
+                parsed.Add(new LanguageServerProfileConfiguration(id, languageId, extensions, markers, command, arguments, symbolIdentityPrefix, symbolKinds, maxSymbolQueries));
+            }
+
+            index++;
+        }
+
+        return [.. parsed];
+    }
+
+    private static LanguageServerSymbolKindMapping[] ParseLanguageServerSymbolKinds(
+        TomlConfigurationReader reader,
+        TomlTable? symbolKinds,
+        string profileLocation)
+    {
+        if (symbolKinds is null)
+        {
+            reader.AddError($"{profileLocation}.symbol_kinds is required.");
+            return [];
+        }
+
+        const string location = "symbol_kinds";
+        var allowed = new[] { "namespace", "type", "method", "property", "field", "event", "parameter" };
+        reader.EnsureAllowed(symbolKinds, $"{profileLocation}.{location}", allowed);
+        var mappings = new List<LanguageServerSymbolKindMapping>();
+        foreach (var semanticKind in allowed)
+        {
+            var kinds = reader.OptionalIntArray(symbolKinds, semanticKind, $"{profileLocation}.{location}");
+            if (kinds is null)
+            {
+                continue;
+            }
+
+            if (kinds.Length == 0 || kinds.Any(static kind => kind is < 1 or > 26) || kinds.Distinct().Count() != kinds.Length)
+            {
+                reader.AddError($"{profileLocation}.{location}.{semanticKind} must contain distinct LSP SymbolKind values from 1 through 26.");
+            }
+
+            mappings.Add(new LanguageServerSymbolKindMapping(semanticKind, kinds));
+        }
+
+        return [.. mappings];
     }
 
     private static void ValidateLayer(TomlConfigurationReader reader, ArchyConfigurationLayer layer)
     {
         reader.ValidateOptionalNonEmpty(layer.WorkspaceDisplayName, "workspace.display_name");
         reader.ValidateOptionalNonEmpty(layer.LocalStateRootPath, "storage.state_root");
-        reader.ValidateOptionalNonEmpty(layer.CSharpLanguageServerCommand, "language_servers.csharp.command");
         reader.ValidateOptionalNonEmpty(layer.SummaryModel, "model.summary_model");
         reader.ValidateOptionalNonEmpty(layer.EmbeddingModel, "model.embedding_model");
         reader.ValidateOptionalNonEmpty(layer.JscpdCommand, "sidecars.jscpd_command");
@@ -341,6 +550,35 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
             }
 
             return [.. strings];
+        }
+
+        public int[]? OptionalIntArray(TomlTable? table, string key, string location)
+        {
+            if (table is null || !table.TryGetValue(key, out var value))
+            {
+                return null;
+            }
+
+            if (value is not TomlArray array)
+            {
+                AddError($"{location}.{key} must be an array of 32-bit integers.");
+                return null;
+            }
+
+            var integers = new List<int>(array.Count);
+            foreach (var item in array)
+            {
+                if (item is long integer && integer is >= int.MinValue and <= int.MaxValue)
+                {
+                    integers.Add((int)integer);
+                    continue;
+                }
+
+                AddError($"{location}.{key} must contain only 32-bit integers.");
+                return null;
+            }
+
+            return [.. integers];
         }
 
         public bool? OptionalBoolean(TomlTable? table, string key, string location)

@@ -1,0 +1,17 @@
+# Provider engine contracts
+
+The provider engine separates evidence collection from graph emission. A matcher emits a versioned `ProviderSiteMatch`; it never writes graph nodes or edges itself. A site match identifies the provider, language, optional framework, recognized shape, repository-relative source range, source hash, raw captures, and one of four explicit states: matched, unresolved, unsupported, or degraded.
+
+`matched` evidence has no diagnostic. Every other state must carry a stable diagnostic code and actionable message. Captures retain raw text only; normalization and joining are separate subsequent contracts. This makes dynamic, unsupported, and temporarily unavailable analysis visible without allowing a provider to manufacture a graph relationship.
+
+The JSON wire schema is `provider-site-match/v1`, uses named enum values, and is generated at compile time for Native AOT. Future pattern-table, join-key, scheduler, and edge-emission capabilities consume this contract rather than provider-specific graph-writing code.
+
+Join-key extraction is a separate versioned contract. A `ProviderJoinKey` identifies the originating capture, its raw evidence, normalized comparison value, strategy (`type_equality`, `string_equality`, `canonical_pattern`, or `configuration_path`), and a structured normalization trail. The contract rejects a type join without C# symbol provenance, a canonical pattern without placeholder metadata, and a configuration path without separator metadata. Resolvers are responsible for creating these facts; emitters consume validated keys rather than re-normalizing strings.
+
+Only the centralized edge emitter converts a matched site and validated join key to a graph edge. It requires distinct node identities, edge kind, provider, and rationale; it emits generated evidence with the original source range and join-key trail. Confidence is bounded by a named tier: semantic `1.00`, explicit syntax `0.80`, literal pattern `0.65`, or advisory `0.40`. Unresolved, unsupported, or degraded sites cannot emit an edge.
+
+The C# pattern-table loader combines versioned built-ins with strict repository `[[provider_patterns]]` entries. A configured pattern is data only: it has a unique id, framework label, `invocation`/`type`/`attribute` shape, member name, optional textual type constraint, and optional invocation argument capture. It cannot load code, choose a graph target, or bypass the site/join/emission contracts. Configured ids may add support but may not override built-ins.
+
+The syntax matcher consumes this table against hash-verified C# files and emits `ProviderSiteMatch` facts only. Literal captures retain their literal values; unavailable argument captures become unresolved sites. A receiver type constraint is deliberately degraded in this syntax-only stage because it requires the semantic adapter to prove the receiver identity. Pattern matches are therefore usable evidence now, while semantic resolution and scheduler-driven graph emission remain subsequent provider-engine work.
+
+The execution scheduler runs uniquely identified matchers against one immutable source snapshot. A matcher failure is recorded as a degraded provider result while successful provider matches remain available; cancellation still stops the whole batch. Scheduler results do not activate a graph revision on their own. The later orchestration slice will join and emit all successful facts, then commit one complete revision atomically.
