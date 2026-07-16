@@ -1,10 +1,32 @@
-bin/
-obj/
-**/node_modules/
-.vs/
-.idea/
-.DS_Store
-.archy/
-artifacts/
+# .NET build output
+[Bb]in/
+[Oo]bj/
+TestResults/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+
+# Node and frontend tooling
+**/node_modules/
+**/.vite/
+**/coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local Archy state and generated diagnostics
+.archy/
+artifacts/
+*.log
+*.tmp
+*.cache
+
+# Editors and operating systems
+.vs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
