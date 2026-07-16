@@ -1,83 +1,79 @@
 # Archy
 
-**Architecture memory for C# repositories.**
+**Architecture memory and deterministic delivery checks for C# repositories.**
 
-Archy analyzes one Git repository at a time, persists a versioned architecture graph outside the worktree, and gives developers and Codex a practical way to answer questions such as:
+Archy analyzes one Git repository at a time, stores its versioned architecture graph outside the worktree, and gives developers and Codex concrete answers to questions such as:
 
-- What depends on this type, file, or boundary?
-- Will this change break an architectural rule?
-- Why does this dependency exist, and how confident is Archy about it?
-- Which summaries, decisions, duplicate findings, and health signals apply to this part of the codebase?
+- What depends on this type, module, or boundary?
+- Would this change introduce a rule violation or dependency cycle?
+- Where should a new capability live, and what evidence supports that answer?
+- Which decisions, summaries, and health signals apply to this area of the codebase?
 
-It is a .NET 10 Native AOT application. The core runs locally on macOS today, needs no globally installed .NET runtime when installed from a release archive, and is designed around a C#-first configuration that can be extended with standard-LSP language profiles.
+Archy is a local .NET 10 Native AOT application. Version `0.1.0` supports macOS on Apple Silicon and Intel, with C# as the initial language profile. It runs without a globally installed .NET runtime after release installation.
 
-> Archy is deliberately honest about certainty. Deterministic, configured, confidence-1.0 architecture facts can enforce rules. Summaries, duplicate detection, placement suggestions, and health scoring are evidence-backed advisories—not pretend guarantees.
+> Archy separates facts from advice. Only configured, deterministic, confidence-`1.0` graph facts can fail `archy verify`. Summaries, duplicate findings, placement suggestions, and health scores remain evidence-backed advisories.
 
-## What you can do today
+## Start here
 
-- Build a revisioned C# architecture graph with source locations, evidence, confidence, provenance, and dependency traversal.
-- Configure dependency layers and verify introduced deterministic violations locally or in CI; export findings as SARIF.
-- Inspect the graph in the local React/Tailwind UI, including node/edge evidence, blast radius, session replay, health components, summary freshness, duplicate evidence, and placement clusters.
-- Ask a small deterministic query grammar: `what uses …?`, `what does … use?`, and `what breaks if I delete …?`.
-- Connect Codex through local MCP tools for preflight checks, rules, dependents, duplicate/placement advice, durable decisions, and session lifecycle events.
-- Use Codex hooks to add startup context and stop a subsequent agent turn after a post-write deterministic violation. Hooks cannot undo a write that already happened.
-- Keep all local graph/session/summary state outside your repository, with database check, backup, restore, vacuum, and diagnostics commands.
-- Enable OpenAI Responses-backed summary work with a user-provided `OPENAI_API_KEY`; the key is never stored in `archy.toml` or returned by the UI/API.
+Choose the path that matches what you want to do:
 
-## Quick start
+| Goal | Start with |
+| --- | --- |
+| Install Archy on a Mac | [Install a release](#install-a-release-macos) |
+| Map and verify one repository | [Set up a repository](#set-up-a-repository) |
+| Use architecture context from Codex | [Connect Codex](#connect-codex-plugin-mcp-and-hooks) |
+| Make architecture checks a merge gate | [Enforce delivery](#enforce-delivery-local-hooks-and-ci) |
+| Browse a graph locally | [Use the local web app](#use-the-local-web-app) |
 
-### From a release archive (macOS)
+## What Archy does today
 
-Choose the matching archive for `uname -m` (`arm64` on Apple Silicon; `x64` on Intel), verify it, extract it, and install:
+- Builds a revisioned C# graph with source locations, confidence, provenance, evidence, and bounded dependency traversal.
+- Enforces configured layer coverage, illegal deterministic dependency directions, and deterministic cycles locally or in CI; exports SARIF for code scanning.
+- Serves a local React/Tailwind graph explorer with nodes, edges, evidence, blast radius, session replay, health, duplicate, and placement views.
+- Understands focused deterministic questions: `what uses …?`, `what does … use?`, and `what breaks if I delete …?`.
+- Provides Codex MCP preflight tools for rules, dependents, placement, duplicates, sessions, decisions, and summary flushing.
+- Adds opt-in Codex lifecycle guidance: session context, post-tool checks after `Bash`, `Edit`, or `Write`, and session finalization.
+- Keeps graph, decision, session, summary, backup, and diagnostic state outside the repository.
+
+## Install a release (macOS)
+
+Download the archive matching your Mac, verify its checksum, and run the included installer. `arm64` is Apple Silicon; `x64` is Intel.
 
 ```sh
-shasum -a 256 -c archy-<version>-osx-<architecture>.tar.gz.sha256
-tar -xzf archy-<version>-osx-<architecture>.tar.gz
-cd archy-<version>-osx-<architecture>
-./install.sh
+ARCHY_VERSION=0.1.0
+
+case "$(uname -m)" in
+  arm64) ARCHY_ARCH=arm64 ;;
+  x86_64) ARCHY_ARCH=x64 ;;
+  *) echo "Archy does not publish a macOS release for $(uname -m)." >&2; exit 1 ;;
+esac
+
+ARCHIVE="archy-${ARCHY_VERSION}-osx-${ARCHY_ARCH}.tar.gz"
+BASE_URL="https://github.com/polatefekaya/archy/releases/download/v${ARCHY_VERSION}"
+
+curl --fail --location --remote-name "${BASE_URL}/${ARCHIVE}"
+curl --fail --location --remote-name "${BASE_URL}/${ARCHIVE}.sha256"
+shasum -a 256 -c "${ARCHIVE}.sha256"
+tar -xzf "$ARCHIVE"
+"./archy-${ARCHY_VERSION}-osx-${ARCHY_ARCH}/install.sh"
 ```
 
-The installer verifies every bundled file before writing under `${ARCHY_INSTALL_PREFIX:-$HOME/.local}`. Add `$HOME/.local/bin` to your `PATH`, then confirm installation:
+The installer verifies every bundled file before writing to `${ARCHY_INSTALL_PREFIX:-$HOME/.local}`. Add its `bin` directory to your shell startup file once, then verify the result:
 
 ```sh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+export PATH="$HOME/.local/bin:$PATH"
 archy --version
 ```
 
-### From this checkout
+To upgrade, back up each important workspace with `archy db backup --path <repository>`, then repeat this process with a later reviewed release. To uninstall, run `uninstall.sh` from the same verified extracted archive.
 
-Use the project command while developing Archy itself:
+## Set up a repository
 
-```sh
-dotnet run --project src/Archy -- --version
-```
-
-### Analyze a repository
-
-From the target repository—not necessarily this one—run:
-
-```sh
-archy workspace init --path .
-archy analyze --path .
-archy verify --path .
-```
-
-`workspace init` discovers the one owning Git repository and creates Archy state outside the worktree. `analyze` builds or updates a graph revision. `verify` evaluates configured deterministic rules and returns a non-zero outcome for introduced violations.
-
-Open the local UI with:
-
-```sh
-archy web serve --path .
-```
-
-Then visit `http://127.0.0.1:8788`. The web host is loopback-only and applies bounded request parsing plus browser security headers.
-
-## Configure architecture rules
-
-Archy loads strict TOML configuration from built-in defaults, user defaults, repository `archy.toml`, an explicit `--config` file, and command-line state-root overrides. Later sources take precedence. Unknown keys are rejected.
-
-Here is a small starting point:
+Run Archy inside exactly one Git repository. Start by declaring the architecture you want it to enforce. The example below must be adapted to your real folder layout; every in-scope C# source file must match exactly one layer before strict verification can pass.
 
 ```toml
+# archy.toml
 schema_version = 1
 
 [[layers]]
@@ -90,52 +86,152 @@ name = "Application"
 include = ["src/**/Application/**"]
 may_depend_on = ["Domain", "Shared"]
 
+[[layers]]
+name = "Domain"
+include = ["src/**/Domain/**"]
+may_depend_on = ["Shared"]
+
+[[layers]]
+name = "Shared"
+include = ["src/**/Shared/**"]
+may_depend_on = []
+
 [enforcement]
 hard_edge_kinds = ["calls", "references", "inherits"]
 ```
 
-Only configured hard edge kinds with confidence exactly `1.0` can block verification. Use `archy config show --path . --json` before scanning to inspect the resolved, secret-free configuration. See the full [configuration reference](docs/configuration.md) for LSP profiles, providers, sidecars, scope, health weights, baselines, and exceptions.
+Then initialize, analyze, and verify:
 
-## Use with Codex
+```sh
+cd /path/to/your/repository
+archy config show --path . --json
+archy workspace init --path .
+archy analyze --path .
+archy verify --path .
+```
 
-Archy’s plugin is in [`plugins/archy`](plugins/archy). Put `archy` on `PATH`, then install the plugin through your Codex marketplace configuration. It starts local stdio MCP for the current repository and provides lifecycle hooks.
+`workspace init` finds the owning Git repository and creates Archy state outside it. `analyze` creates or updates a graph revision. `verify` refreshes analysis and returns a non-zero result only for introduced deterministic findings. If you are adopting Archy in a repository with reviewed existing debt, use `archy baseline accept --path .`, inspect the generated `archy.baseline.json`, and commit it with `archy.toml`; never create a baseline merely to silence unknown findings.
 
-The typical loop is:
+See the [configuration reference](docs/configuration.md) for language-server profiles, provider patterns, scope, sidecars, baselines, and time-bounded exceptions.
 
-1. Start an attributed architecture session.
-2. Ask MCP to check a proposed boundary-sensitive change or inspect dependents/rules.
-3. Make the edit.
-4. Let the post-tool hook report deterministic violations and advisory context.
-5. Record an accepted/ignored/modified decision with a reason when needed.
-6. End the session; Archy persists replayable events and queues summary work without blocking task completion.
+## Connect Codex: plugin, MCP, and hooks
 
-For a non-Codex integration, start stdio MCP directly:
+Archy’s Codex plugin starts `archy mcp stdio` for the current repository and contributes hooks. The plugin contains no API keys or source code; it requires the installed `archy` executable to be on `PATH`.
+
+### Install from the public Git marketplace
+
+```sh
+codex plugin marketplace add polatefekaya/archy --ref v0.1.0
+codex plugin add archy@archy
+```
+
+Start a **new Codex task** after installation. Confirm the integration before depending on it:
+
+```sh
+codex plugin list
+codex mcp list
+```
+
+You should see `archy@archy` as installed and enabled, and an enabled `archy` MCP server running `archy mcp stdio`.
+
+Open `/hooks` in Codex, review, and trust Archy’s hooks:
+
+- `SessionStart` loads a bounded architecture and rule summary.
+- `PostToolUse` runs after `Bash`, `Edit`, or `Write`; an introduced deterministic finding can stop the current agent turn with remediation.
+- `Stop` finalizes session state.
+
+These hooks are feedback after an operation. They cannot prevent or roll back a completed write, and they do not replace local Git hooks or CI.
+
+### Use Archy in a Codex task
+
+Ask Codex naturally, or explicitly mention Archy:
+
+```text
+Use Archy to check the dependency rules and dependents before changing this API boundary.
+```
+
+```text
+Use Archy to suggest the correct placement for this new capability and explain the evidence.
+```
+
+For a non-Codex MCP client, use stdio directly:
 
 ```sh
 archy mcp stdio /absolute/path/to/repository
 ```
 
-Optional MCP-over-HTTP remains loopback-only and requires an explicit bearer token:
+This setup deliberately pins the plugin to a reviewed release tag. To move to a later release, remove the installed plugin and marketplace, replace `v0.1.0` with the new tag, then install again:
 
 ```sh
-archy mcp http --port 8789 --token <at-least-24-character-token> /absolute/path/to/repository
+codex plugin remove archy@archy
+codex plugin marketplace remove archy
+codex plugin marketplace add polatefekaya/archy --ref vX.Y.Z
+codex plugin add archy@archy
 ```
 
-Read the [Codex integration guide](docs/integrations/codex.md) and [enforcement semantics](docs/architecture/enforcement.md) before enabling delivery gates.
+## Enforce delivery: local hooks and CI
 
-## AI summaries and privacy
+Codex is helpful feedback; the delivery boundary is local Git hooks plus a required CI status check.
 
-Model-backed summaries are optional. Set the model provider in configuration and provide an API key only through the environment:
+### Local Git gate
+
+After `archy verify` is working in a repository:
 
 ```sh
-export OPENAI_API_KEY='…'
+archy hooks install --path .
+archy hooks status --path .
 ```
 
-The local capability view reports whether the model provider is available without exposing the key. If the provider is unavailable, Archy reports degraded coverage and defers summary work; it does not block your task or misrepresent the graph as fully documented. Review the repository’s AI consent/redaction settings before enabling source sharing.
+Archy installs reversible `pre-commit` and `pre-push` wrappers. They evaluate staged or pushed Git trees in isolated temporary workspaces, not your mutable checkout. Developers can bypass local hooks, so CI remains mandatory.
 
-## Backups, updates, and recovery
+### GitHub Actions gate
 
-Treat the architecture database as durable local state:
+Copy [the workflow template](.github/workflow-templates/archy-verify.yml) into the target repository as `.github/workflows/archy-verify.yml`. In that repository’s Actions variables, set:
+
+| Variable | Value |
+| --- | --- |
+| `ARCHY_VERSION` | The exact reviewed release version, for example `0.1.0`. |
+| `ARCHY_SHA256` | The checksum from `archy-<version>-osx-arm64.tar.gz.sha256`. |
+
+Run the workflow once so GitHub discovers **`Archy / verify`**, then protect the default branch: require that check, require it to be up to date, restrict bypass/direct pushes, and protect `archy.toml`, `archy.baseline.json`, `archy.exceptions.json`, and workflow files with code-owner review.
+
+The complete policy, SARIF, and branch-protection instructions are in the [GitHub Actions guide](docs/ci/github-actions.md).
+
+## Use the local web app
+
+After initialization and analysis:
+
+```sh
+archy web serve --path .
+```
+
+Open [http://127.0.0.1:8788](http://127.0.0.1:8788). The server is loopback-only. Use the map to explore nodes and dependencies; use the detail and evidence views to understand why an edge exists before acting on it.
+
+## Daily workflow
+
+1. Pull the latest repository changes.
+2. Run `archy analyze --path .` when you need a fresh graph.
+3. Ask Archy/Codex for dependents, rules, and placement before boundary-sensitive work.
+4. Make the change and address any post-tool hook stop.
+5. Run `archy verify --path .` before committing.
+6. Let the local Git gate and required `Archy / verify` CI check protect delivery.
+
+## Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| `archy: command not found` | Ensure `$HOME/.local/bin` is on `PATH`, open a new terminal, then run `archy --version`. |
+| Codex has no Archy tools | Run `codex plugin list` and `codex mcp list`; confirm the plugin is enabled, start a new task, and ensure `archy` is on `PATH`. |
+| Hooks do not run | Open `/hooks`, review/trust the Archy hooks, and confirm the project is trusted by Codex. |
+| `workspace has not been initialized` | Run `archy workspace init --path .` from the target Git repository. |
+| `verify` reports no configured layer rule | Add a reviewed `archy.toml` with at least one layer and run `archy config show --path . --json`. |
+| Layer coverage fails | Adjust layer globs until every in-scope C# source node matches exactly one layer. |
+| A sidecar or language server is unavailable | Install its declared runtime/executable; Archy reports this as degraded coverage, never as a successful semantic analysis. |
+| Native AOT archive does not run on Linux | Linux release artifacts are not published yet; macOS is the supported initial platform. |
+
+## Backups, recovery, and privacy
+
+Archy state is durable local data. Back up before upgrades or experiments:
 
 ```sh
 archy db check --path .
@@ -143,31 +239,25 @@ archy db backup --path .
 archy db diagnostics --path .
 ```
 
-Before upgrading, verify the archive checksum and make a backup. Archy migration catalog and schema compatibility checks fail closed instead of silently rewriting incompatible state. See [security and release operations](docs/security-and-releases.md) for rollback and sidecar guidance.
+Restore only from an explicit backup after stopping Archy. Schema and migration compatibility checks fail closed rather than silently rewriting incompatible state.
 
-## Development and verification
+Optional AI-assisted features must never receive credentials through `archy.toml`. Keep keys in the environment or supported secure storage; review consent and redaction configuration before authorizing any source sharing. A model, LSP, or sidecar outage is shown as degraded coverage rather than a false architectural pass.
 
-```sh
-zsh scripts/test.sh
-cd ui/archy-web && npm ci && npm test && npm run build
-dotnet publish src/Archy/Archy.csproj --configuration Release --runtime osx-arm64 --self-contained true --no-restore
-```
+## Important limits
 
-The repository’s verification suite covers architecture analysis, graph persistence/traversal, MCP and hook behavior, WebSocket replay, local API contracts/security, Native AOT publishing, and the web client’s API/accessibility contracts.
-
-## Important limitations
-
-- Initial product support is C# and macOS. Language profiles are extensible; Linux packaging is a follow-on target.
-- One Archy workspace graph belongs to one Git repository. Cross-repository graphs are intentionally out of scope.
-- Hook enforcement occurs after a tool operation. It can stop continuation and provide remediation, but cannot prevent or roll back an already completed write.
-- Advisory findings retain confidence and evidence, but must not be treated as hard architectural rules.
-- Optional Node/Python sidecars require their respective runtimes. Their absence is surfaced as a degraded capability.
+- One graph belongs to one Git repository; cross-repository graphs are intentionally out of scope.
+- C# and macOS are the initial supported surface. Standard-LSP profiles are configuration-driven for future language support.
+- Only exact-confidence deterministic facts can block. Advice always retains evidence and confidence.
+- Post-tool hooks happen after the operation they inspect.
+- Node and Python are required only for their respective optional sidecars.
 
 ## Further reading
 
 - [User guide](docs/user-guide.md)
 - [Configuration reference](docs/configuration.md)
 - [Codex integration](docs/integrations/codex.md)
+- [Deterministic enforcement](docs/architecture/enforcement.md)
+- [GitHub Actions integration](docs/ci/github-actions.md)
 - [Security and release operations](docs/security-and-releases.md)
 - [Extension guide](docs/extending-archy.md)
 - [Architecture contracts](docs/architecture/contract-checklist.md)
