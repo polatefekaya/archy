@@ -1,0 +1,228 @@
+name: Publish Archy release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: Semantic version increment after the currently released version.
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: read
+
+concurrency:
+  group: archy-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare repository version
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      commit_sha: ${{ steps.release.outputs.commit_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Reject non-default branch dispatches
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          test "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" || {
+            echo "Releases may only be dispatched from $DEFAULT_BRANCH." >&2
+            exit 64
+          }
+      - name: Test version tooling
+        run: sh scripts/release/test-version.sh
+      - name: Reserve the next repository version
+        id: release
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -eu
+          test -z "$(git status --porcelain)" || {
+            echo "Release checkout is not clean." >&2
+            exit 64
+          }
+
+          current=$(sh scripts/release/version.sh current)
+          current_tag="v$current"
+          if git rev-parse -q --verify "refs/tags/$current_tag" >/dev/null; then
+            version=$(sh scripts/release/version.sh next "$RELEASE_TYPE")
+          else
+            latest_tag=$(git tag -l 'v[0-9]*' --sort=-version:refname | head -n 1)
+            if [ -n "$latest_tag" ]; then
+              test "$(git log -1 --format=%s)" = "chore(release): v$current" || {
+                echo "Repository version $current is not tagged and is not a prepared release candidate. Resolve the version history before releasing." >&2
+                exit 64
+              }
+            fi
+            version=$current
+          fi
+
+          tag="v$version"
+          git rev-parse -q --verify "refs/tags/$tag" >/dev/null && {
+            echo "Release tag $tag already exists." >&2
+            exit 64
+          }
+
+          sh scripts/release/set-version.sh "$version"
+          sh scripts/release/test-version.sh
+          git diff --check
+          if ! git diff --quiet -- eng/Version.props; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add eng/Version.props
+            git commit -m "chore(release): v$version"
+            git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"
+          fi
+
+          commit_sha=$(git rev-parse HEAD)
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+          printf 'commit_sha=%s\n' "$commit_sha" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: Release quality gates
+    needs: prepare
+    runs-on: macos-14
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ui/archy-web/package-lock.json
+      - run: sh scripts/release/test-version.sh
+      - run: dotnet restore Archy.sln
+      - run: dotnet build Archy.sln --configuration Release --no-restore
+      - run: dotnet test Archy.sln --configuration Release --no-build --no-restore
+      - run: npm ci && npm test && npm run build
+        working-directory: ui/archy-web
+      - run: zsh scripts/verify-architecture-contracts.sh
+      - run: sh scripts/ci/dependency-audit.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-security-reports
+          path: artifacts/security
+          if-no-files-found: warn
+
+  package:
+    name: Package macOS ${{ matrix.architecture }}
+    needs:
+      - prepare
+      - quality
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: arm64
+            runner: macos-14
+          - architecture: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ui/archy-web/package-lock.json
+      - name: Build bundled web client
+        run: npm ci && npm run build
+        working-directory: ui/archy-web
+      - name: Build release archive
+        env:
+          ARCHY_RELEASE_OUTPUT_DIRECTORY: ${{ github.workspace }}/artifacts/release
+        run: sh scripts/release/package-macos.sh "${{ needs.prepare.outputs.version }}" "${{ matrix.architecture }}"
+      - name: Verify release installation contract
+        run: sh scripts/release/verify-macos-release.sh "artifacts/release/archy-${{ needs.prepare.outputs.version }}-osx-${{ matrix.architecture }}.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-osx-${{ matrix.architecture }}
+          path: |
+            artifacts/release/*.tar.gz
+            artifacts/release/*.tar.gz.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Create GitHub release
+    needs:
+      - prepare
+      - quality
+      - package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit_sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-osx-*
+          path: artifacts/release
+          merge-multiple: true
+      - name: Verify release assets
+        working-directory: artifacts/release
+        run: |
+          set -eu
+          test "$(find . -maxdepth 1 -name '*.tar.gz' -type f | wc -l | tr -d ' ')" -eq 2
+          test "$(find . -maxdepth 1 -name '*.tar.gz.sha256' -type f | wc -l | tr -d ' ')" -eq 2
+          for checksum in ./*.tar.gz.sha256; do
+            shasum -a 256 -c "$checksum"
+          done
+      - name: Tag and publish verified artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          COMMIT_SHA: ${{ needs.prepare.outputs.commit_sha }}
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            test "$(git rev-list -n 1 "$TAG")" = "$COMMIT_SHA" || {
+              echo "Existing tag $TAG does not identify the verified release commit." >&2
+              exit 64
+            }
+          else
+            git tag -a "$TAG" "$COMMIT_SHA" -m "Archy $VERSION"
+            git push origin "refs/tags/$TAG"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/release/* --clobber
+          else
+            gh release create "$TAG" artifacts/release/* --target "$COMMIT_SHA" --title "Archy $VERSION" --generate-notes
+          fi

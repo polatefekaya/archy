@@ -21,6 +21,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: ui/archy-web/package-lock.json
+      - run: sh scripts/release/test-version.sh
       - run: dotnet restore Archy.sln
       - run: dotnet build Archy.sln --no-restore
       - run: dotnet test Archy.sln --no-restore --no-build

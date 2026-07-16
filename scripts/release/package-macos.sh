@@ -4,12 +4,13 @@ set -eu
 
 fail() { printf '%s\n' "archy-release: $1" >&2; exit 64; }
 
+root=$(CDPATH= cd "$(dirname "$0")/../.." && pwd)
 version=${1:-}
 architecture=${2:-}
-case "$version" in *[!0-9.]*|"") fail "usage: sh scripts/release/package-macos.sh <X.Y.Z> <arm64|x64>" ;; esac
+[ "$#" -eq 2 ] || fail "usage: sh scripts/release/package-macos.sh <X.Y.Z> <arm64|x64>"
+sh "$root/scripts/release/version.sh" validate "$version"
 case "$architecture" in arm64|x64) ;; *) fail "architecture must be arm64 or x64" ;; esac
 
-root=$(CDPATH= cd "$(dirname "$0")/../.." && pwd)
 output_directory=${ARCHY_RELEASE_OUTPUT_DIRECTORY:-"$root/artifacts/release"}
 temporary_directory=$(mktemp -d "${TMPDIR:-/tmp}/archy-release.XXXXXX") || fail "could not create a temporary directory"
 trap 'rm -rf "$temporary_directory"' 0 HUP INT TERM
