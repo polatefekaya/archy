@@ -17,7 +17,10 @@ trap 'rm -rf "$temporary_directory"' 0 HUP INT TERM
 mkdir -p "$output_directory"
 
 if [ "${ARCHY_RELEASE_NO_RESTORE:-false}" != true ]; then
-  dotnet restore "$root/src/Archy/Archy.csproj" --runtime "osx-$architecture"
+  # Restore must use the exact Native AOT publish property set. Otherwise
+  # --no-restore publish can miss ILCompiler's computed assembly inputs.
+  dotnet restore "$root/src/Archy/Archy.csproj" --runtime "osx-$architecture" \
+    -p:SelfContained=true -p:PublishAot=true -p:PublishSingleFile=true
 fi
 
 dotnet publish "$root/src/Archy/Archy.csproj" \
