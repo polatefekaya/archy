@@ -1,0 +1,2 @@
+namespace Archy.Features.Advisories.ComposeUnifiedAdvisories;
+public sealed record UnifiedAdvisoryResult(IReadOnlyList<string> IntroducedBlockingViolationIds,IReadOnlyList<AdvisoryItem> Recommendations);

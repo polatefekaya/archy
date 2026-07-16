@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Archy.Features.Workspaces.InitializeWorkspace;
+using Archy.Features.CommandLine.TerminalPresentation;
 using Archy.SharedKernel.Primitives;
 using Mediator;
 
@@ -91,10 +92,15 @@ public static partial class InitializeWorkspaceCli
             return;
         }
 
-        Console.WriteLine($"Workspace ID: {workspace.StateLocation.WorkspaceId}");
-        Console.WriteLine($"State directory: {workspace.StateLocation.StateDirectory}");
-        Console.WriteLine($"Manifest: {workspace.StateLocation.ManifestPath}");
-        Console.WriteLine(workspace.WasCreated ? "Workspace state created." : "Workspace state already exists.");
+        TerminalCardWriter.WriteToStandardOutput(new TerminalCard(
+            "ARCHY  ·  WORKSPACE READY",
+            workspace.WasCreated ? "Local architectural memory has been initialized." : "Local architectural memory is already initialized.",
+            [
+                new TerminalDetail("Workspace ID", workspace.StateLocation.WorkspaceId),
+                new TerminalDetail("State directory", workspace.StateLocation.StateDirectory),
+                new TerminalDetail("Manifest", workspace.StateLocation.ManifestPath),
+            ],
+            "Next: archy analyze  ·  archy web serve  ·  archy mcp stdio"));
     }
 
     private static void WriteError(bool json, Problem problem)

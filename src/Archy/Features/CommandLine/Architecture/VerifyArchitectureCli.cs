@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Archy.Features.Architecture.ExportSarif;
 using Archy.Features.Architecture.VerifyArchitecture;
+using Archy.Features.CommandLine.TerminalPresentation;
 using Archy.SharedKernel.Primitives;
 using Mediator;
 
@@ -94,8 +95,8 @@ public static partial class VerifyArchitectureCli
             return WriteSarif(options.OutputPath, ArchitectureSarifReportBuilder.Build(verification));
         }
 
-        Console.WriteLine($"Architecture verification revision: {verification.GraphRevision.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
-        Console.WriteLine($"Baseline: {verification.Baseline.Status} ({verification.Baseline.BaselinePath})");
+        VerificationTerminalScreen.Write(verification);
+        Console.WriteLine($"Baseline file: {verification.Baseline.BaselinePath}");
         foreach (var outcome in verification.Baseline.Findings)
         {
             Console.WriteLine($"{outcome.Status.ToString().ToLowerInvariant()} {outcome.Finding.Kind}: {outcome.Finding.Message}");
@@ -104,15 +105,6 @@ public static partial class VerifyArchitectureCli
         foreach (var exception in verification.Exceptions)
         {
             Console.WriteLine($"exception {exception.State.ToString().ToLowerInvariant()}: {exception.Exception.FindingKey} — {exception.Exception.Author}; expires {exception.Exception.ExpiresAtUtc.ToString("O", System.Globalization.CultureInfo.InvariantCulture)}");
-        }
-
-        if (verification.IsCompliant)
-        {
-            Console.WriteLine("Architecture verification passed with no introduced deterministic findings.");
-        }
-        else
-        {
-            Console.WriteLine("Architecture verification failed because it introduced deterministic findings.");
         }
 
         return null;

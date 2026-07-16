@@ -15,6 +15,7 @@ using Archy.Features.Configuration.LoadEffectiveConfiguration;
 using Archy.Features.Graph.CommitGraphRevision;
 using Archy.Features.Graph.ReadActiveGraphRevision;
 using Archy.Features.Graph.ReadGraphRevision;
+using Archy.Features.Integrations.Codex.PublishAgentsSnapshot;
 using Archy.Features.Workspaces.InitializeWorkspace;
 using Archy.Features.Workspaces.LocateWorkspace;
 using Archy.Features.Workspaces.ReadRepositoryCommit;
@@ -42,7 +43,8 @@ public sealed class AnalyzeWorkspaceHandler(
     IJsonConfigurationDefinitionProvider configurationDefinitionProvider,
     IRabbitMqTopologyProvider rabbitMqTopologyProvider,
     IDotNetMessageContractProvider messageContractProvider,
-    IGraphRevisionCommitter graphRevisionCommitter)
+    IGraphRevisionCommitter graphRevisionCommitter,
+    IPostRevisionAgentsPublisher agentsPublisher)
     : IRequestHandler<AnalyzeWorkspaceCommand, Result<WorkspaceAnalysis>>, IWorkspaceAnalyzer
 {
     private const string AnalyzerVersion = "syntax-configured-lsp-symbols-v3-incremental";
@@ -352,6 +354,13 @@ public sealed class AnalyzeWorkspaceHandler(
                 await CompleteFailedRunAsync(location.Value, run.Value.RunId);
                 return ResultFactory.Failure<WorkspaceAnalysis>(committed.Problem!);
             }
+
+            // The graph is already committed. A generated guidance refresh is best-effort and idempotent, never a reason to invalidate that revision.
+            _ = await agentsPublisher.PublishAsync(
+                workspace.Value.RepositoryRoot,
+                configuration.Value.Configuration,
+                committed.Value!.Revision,
+                cancellationToken);
 
             return ResultFactory.Success(new WorkspaceAnalysis(
                 IsComplete: true,

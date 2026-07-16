@@ -35,7 +35,21 @@ public sealed class BoundedEmbeddingCandidateRetriever(EmbeddingRetrievalOptions
                 var left = ordered[index].MethodStableId;
                 var right = ordered[item.Index].MethodStableId;
                 var key = string.CompareOrdinal(left, right) <= 0 ? (left, right) : (right, left);
-                if (!pairs.TryGetValue(key, out var distance) || item.Distance < distance) pairs[key] = item.Distance;
+                if (pairs.TryGetValue(key, out var distance))
+                {
+                    if (item.Distance < distance)
+                    {
+                        pairs[key] = item.Distance;
+                    }
+
+                    continue;
+                }
+
+                // A corpus-sized global cap prevents a dense band from turning per-method probes into an unbounded exact-comparison workload.
+                if (pairs.Count < ordered.Length)
+                {
+                    pairs.Add(key, item.Distance);
+                }
             }
         }
 

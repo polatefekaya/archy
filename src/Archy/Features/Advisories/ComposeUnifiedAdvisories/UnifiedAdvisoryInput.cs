@@ -1,0 +1,3 @@
+using Archy.Features.Duplicates.ApplyDuplicateDecisionFeedback;using Archy.Features.Placement.AdviseSplitOrAppend;using Archy.Features.Placement.ScorePlacementOverlap;
+namespace Archy.Features.Advisories.ComposeUnifiedAdvisories;
+public sealed record UnifiedAdvisoryInput(IReadOnlyList<string> IntroducedBlockingViolationIds,DuplicateDecisionFeedback? DuplicateFeedback,PlacementRecommendation? Placement,SplitAppendAdvice? SplitAppend);

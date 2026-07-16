@@ -1,4 +1,5 @@
 using Archy.Features.Analysis.WatchWorkspaceChanges;
+using System.Diagnostics;
 
 namespace Archy.UnitTests.Features.Analysis.WatchWorkspaceChanges;
 
@@ -8,25 +9,28 @@ public sealed class WorkspaceChangeDebounceControllerTests
     public async Task CoalescesAtomicSaveNoiseAndWaitsForTheSessionIdleWindow()
     {
         var dispatched = new TaskCompletionSource<WorkspaceChangeSet>(TaskCreationOptions.RunContinuationsAsynchronously);
+        long dispatchedTimestamp = 0;
         await using var controller = new WorkspaceChangeDebounceController(
             TimeProvider.System,
             new WorkspaceWatchOptions(TimeSpan.FromMilliseconds(20), TimeSpan.FromMilliseconds(60)),
             (changeSet, _) =>
             {
+                dispatchedTimestamp = Stopwatch.GetTimestamp();
                 dispatched.TrySetResult(changeSet);
                 return ValueTask.CompletedTask;
             });
 
         controller.RecordPath("src/Feature.cs");
         controller.RecordPath("src/Feature.cs");
+        var sessionActivityTimestamp = Stopwatch.GetTimestamp();
         controller.RecordSessionActivity();
-        await Task.Delay(35);
-        Assert.False(dispatched.Task.IsCompleted);
 
         var settled = await dispatched.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.Equal(["src/Feature.cs"], settled.RepositoryRelativePaths);
         Assert.False(settled.RequiresFullInventoryReconciliation);
+        var idleElapsed = Stopwatch.GetElapsedTime(sessionActivityTimestamp, dispatchedTimestamp);
+        Assert.True(idleElapsed >= TimeSpan.FromMilliseconds(50), $"Dispatch occurred after only {idleElapsed.TotalMilliseconds:F0} ms of the 60 ms idle window.");
     }
 
     [Fact]

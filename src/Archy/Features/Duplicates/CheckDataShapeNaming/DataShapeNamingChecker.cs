@@ -22,7 +22,7 @@ public sealed class DataShapeNamingChecker : IDataShapeNamingChecker
             right.StableId,
             Round(comparison.SemanticSimilarity),
             Round(nameSimilarity),
-            $"'{left.DisplayName}' and '{right.DisplayName}' are highly similar {Describe(left.Kind)} shapes; review whether their names clearly communicate distinct roles.");
+            $"'{left.DisplayName}' and '{right.DisplayName}' are highly similar {Describe(left.Kind)} shapes; review the naming convention to ensure their names clearly communicate distinct roles.");
     }
 
     private static void Validate(DataShapeNamingComparison comparison)

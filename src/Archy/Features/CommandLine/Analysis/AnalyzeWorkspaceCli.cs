@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Archy.Features.Analysis.AnalyzeWorkspace;
+using Archy.Features.CommandLine.TerminalPresentation;
 using Archy.SharedKernel.Primitives;
 using Mediator;
 
@@ -22,6 +23,11 @@ public static partial class AnalyzeWorkspaceCli
             return 64;
         }
 
+        if (!options.Json)
+        {
+            AnalysisTerminalScreen.WriteStarting(options.Path);
+        }
+
         var result = await mediator.Send(
             new AnalyzeWorkspaceCommand(options.Path, options.ConfigurationPath, options.StateRoot),
             cancellationToken);
@@ -35,27 +41,9 @@ public static partial class AnalyzeWorkspaceCli
         {
             Console.WriteLine(JsonSerializer.Serialize(result.Value, AnalyzeWorkspaceJsonContext.Default.WorkspaceAnalysis));
         }
-        else if (result.Value.WasNoOp)
-        {
-            Console.WriteLine("Analysis is current; no graph revision was needed.");
-        }
         else
         {
-            Console.WriteLine($"Analysis complete: {result.Value.IsComplete}");
-            Console.WriteLine($"C# syntax diagnostics: {result.Value.CSharpSyntaxFacts?.Diagnostics.Count ?? 0}");
-            Console.WriteLine($"Resolved DI registrations: {result.Value.DependencyRegistrationFacts?.Edges.Count ?? 0}");
-            WriteDiagnostics("DI registration diagnostics", result.Value.DependencyRegistrationFacts?.Diagnostics);
-            Console.WriteLine($"Resolved DI consumptions: {result.Value.DependencyConsumptionFacts?.Edges.Count ?? 0}");
-            WriteDiagnostics("DI consumption diagnostics", result.Value.DependencyConsumptionFacts?.Diagnostics);
-            Console.WriteLine($"Resolved configuration reads: {result.Value.ConfigurationReadFacts?.Edges.Count ?? 0}");
-            WriteDiagnostics("Configuration diagnostics", result.Value.ConfigurationReadFacts?.Diagnostics);
-            Console.WriteLine($"Resolved configuration definitions: {result.Value.ConfigurationDefinitionFacts?.Edges.Count ?? 0}");
-            WriteDiagnostics("Configuration definition diagnostics", result.Value.ConfigurationDefinitionFacts?.Diagnostics);
-            Console.WriteLine($"Resolved RabbitMQ topology edges: {result.Value.RabbitMqTopologyFacts?.Edges.Count ?? 0}");
-            WriteDiagnostics("RabbitMQ topology diagnostics", result.Value.RabbitMqTopologyFacts?.Diagnostics);
-            Console.WriteLine($"Resolved message contracts: {result.Value.MessageContractFacts?.Edges.Count ?? 0}");
-            WriteDiagnostics("Message contract diagnostics", result.Value.MessageContractFacts?.Diagnostics);
-            Console.WriteLine($"Graph revision: {result.Value.GraphRevision?.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none"}");
+            AnalysisTerminalScreen.WriteCompleted(result.Value);
         }
 
         return result.Value.IsComplete ? 0 : 1;
@@ -102,23 +90,6 @@ public static partial class AnalyzeWorkspaceCli
         }
 
         Console.Error.WriteLine($"{problem.Code}: {problem.Message}");
-    }
-
-    private static void WriteDiagnostics<TDiagnostic>(
-        string label,
-        IReadOnlyList<TDiagnostic>? diagnostics)
-        where TDiagnostic : class
-    {
-        Console.WriteLine($"{label}: {diagnostics?.Count ?? 0}");
-        if (diagnostics is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in diagnostics)
-        {
-            Console.WriteLine(diagnostic);
-        }
     }
 
     private sealed record AnalyzeWorkspaceCliOptions(

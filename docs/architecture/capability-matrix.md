@@ -27,7 +27,7 @@
 | Decisions, session replay, duplicate/cluster/health persistence | Implemented foundation | Append-only, revision-scoped provenance |
 | Duplicates, placement, cohesion analysis | Planned | Explainable advisory only |
 | OpenAI summaries/embeddings | Planned | Opt-in, user-keyed, budgeted |
-| MCP tools and Codex hooks | Planned | Post-edit guidance; no pre-write claim |
+| MCP tools and Codex hooks | Implemented integration foundation | Ten MCP tools over stdio and opt-in authenticated loopback HTTP; SessionStart and PostToolUse provide bounded context and after-the-fact deterministic turn stops. They cannot prevent prior writes and do not replace Git/CI enforcement. Stop finalization and live UI fan-out remain in progress. |
 | macOS | Implemented host target | Native AOT publish tested |
 | Linux | Planned next platform | No current release claim |
 | Other source languages | Standard-LSP semantic facts configurable now | Add a validated `language_server_profiles` entry; generic symbols, references, and outgoing calls need no host-language code, while language-specific syntax/framework providers remain future work |

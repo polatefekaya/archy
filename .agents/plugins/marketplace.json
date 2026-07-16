@@ -1,0 +1,20 @@
+{
+  "name": "archy",
+  "interface": {
+    "displayName": "Archy"
+  },
+  "plugins": [
+    {
+      "name": "archy",
+      "source": {
+        "source": "local",
+        "path": "./plugins/archy"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

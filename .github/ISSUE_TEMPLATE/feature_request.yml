@@ -1,0 +1,10 @@
+name: Feature request
+description: Propose a bounded product or extension capability.
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Problem and proposed outcome
+      description: Explain the user problem, expected guarantees, advisory/strict boundary, and likely configuration impact.
+    validations:
+      required: true

@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "archy codex-hook session-start",
+            "timeout": 15,
+            "statusMessage": "Loading Archy architecture context"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "archy codex-hook post-tool-use",
+            "timeout": 30,
+            "statusMessage": "Reviewing Archy architecture impact"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "archy codex-hook stop",
+            "timeout": 15,
+            "statusMessage": "Finalizing Archy session"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -16,6 +16,7 @@ using Archy.Features.Graph.CommitGraphRevision;
 using Archy.Features.Graph.ReadActiveGraphRevision;
 using Archy.Features.Graph.ReadGraphRevision;
 using Archy.Features.Analysis.PlanIncrementalAnalysis;
+using Archy.Features.Integrations.Codex.PublishAgentsSnapshot;
 using Archy.Features.Workspaces.AcquireWorkspaceLock;
 using Archy.Features.Workspaces.InitializeWorkspace;
 using Archy.Features.Workspaces.LocateWorkspace;
@@ -50,6 +51,17 @@ internal static class AnalyzeWorkspaceTestSupport
             new JsonConfigurationDefinitionProvider(),
             new RabbitMqTopologyProvider(),
             new DotNetMessageContractProvider(),
-            new GraphRevisionCommitter(TimeProvider.System, lockManager));
+            new GraphRevisionCommitter(TimeProvider.System, lockManager),
+            new NoOpAgentsPublisher());
+    }
+
+    private sealed class NoOpAgentsPublisher : IPostRevisionAgentsPublisher
+    {
+        public ValueTask<Archy.SharedKernel.Primitives.Result<bool>> PublishAsync(
+            string repositoryRoot,
+            Archy.Features.Configuration.LoadEffectiveConfiguration.ArchyConfiguration configuration,
+            long graphRevision,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Archy.SharedKernel.Primitives.ResultFactory.Success(false));
     }
 }

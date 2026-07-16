@@ -2,11 +2,12 @@ using System.Globalization;
 using Microsoft.Data.Sqlite;
 using Archy.Features.Workspaces.AcquireWorkspaceLock;
 using Archy.Features.Workspaces.InitializeWorkspace;
+using Archy.Features.Sessions.ReplayEventPages;
 using Archy.SharedKernel.Primitives;
 
 namespace Archy.Features.Sessions.ArchitectureSessions;
 
-public sealed class ArchitectureSessionRepository(TimeProvider timeProvider, IWorkspaceLockManager lockManager) : IArchitectureSessionRepository
+public sealed class ArchitectureSessionRepository(TimeProvider timeProvider, IWorkspaceLockManager lockManager) : IArchitectureSessionRepository, IArchitectureSessionEventReplayReader
 {
     public async ValueTask<Result<ArchitectureSession>> StartAsync(
         WorkspaceStateLocation location,
@@ -228,6 +229,75 @@ public sealed class ArchitectureSessionRepository(TimeProvider timeProvider, IWo
         {
             return ResultFactory.Failure<IReadOnlyList<SessionEvent>>(
                 Problem.Storage($"Archy could not read session events: {exception.Message}"));
+        }
+    }
+
+    public async ValueTask<Result<SessionEventReplayPage>> ReadAsync(
+        WorkspaceStateLocation location,
+        string sessionId,
+        int afterSequence,
+        int maximumEvents,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
+        if (afterSequence < 0 || maximumEvents is < 1 or > 1_000)
+        {
+            return ResultFactory.Failure<SessionEventReplayPage>(Problem.Validation("Session event replay requires a non-negative cursor and a page size between 1 and 1000."));
+        }
+
+        var lease = await lockManager.AcquireAsync(location, WorkspaceLockMode.Read, TimeSpan.FromSeconds(30), cancellationToken);
+        if (!lease.IsSuccess)
+        {
+            return ResultFactory.Failure<SessionEventReplayPage>(lease.Problem!);
+        }
+
+        using var heldLease = lease.Value;
+        try
+        {
+            SQLitePCL.Batteries_V2.Init();
+            await using var connection = new SqliteConnection($"Data Source={location.DatabasePath}");
+            await connection.OpenAsync(cancellationToken);
+            await using (var existsCommand = connection.CreateCommand())
+            {
+                existsCommand.CommandText = "SELECT EXISTS(SELECT 1 FROM sessions WHERE workspace_id = $workspaceId AND session_id = $sessionId);";
+                existsCommand.Parameters.AddWithValue("$workspaceId", location.WorkspaceId);
+                existsCommand.Parameters.AddWithValue("$sessionId", sessionId);
+                if (Convert.ToInt64(await existsCommand.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 0)
+                {
+                    return ResultFactory.Failure<SessionEventReplayPage>(Problem.NotFound($"Architecture session '{sessionId}' was not found."));
+                }
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT event_id, sequence_number, event_type, graph_revision, target_kind, target_stable_id, decision_id, payload_json, occurred_at_utc FROM session_events WHERE workspace_id = $workspaceId AND session_id = $sessionId AND sequence_number > $afterSequence ORDER BY sequence_number LIMIT $limit;";
+            command.Parameters.AddWithValue("$workspaceId", location.WorkspaceId);
+            command.Parameters.AddWithValue("$sessionId", sessionId);
+            command.Parameters.AddWithValue("$afterSequence", afterSequence);
+            command.Parameters.AddWithValue("$limit", maximumEvents + 1);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            var events = new List<SessionEvent>();
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                events.Add(new SessionEvent(
+                    reader.GetString(0),
+                    sessionId,
+                    reader.GetInt32(1),
+                    SessionDatabase.EventKindFromDatabase(reader.GetString(2)),
+                    reader.IsDBNull(3) ? null : reader.GetInt64(3),
+                    reader.IsDBNull(4) ? null : new ArchitectureTarget(ArchitectureTargetCodec.FromStorageValue(reader.GetString(4)), reader.GetString(5)),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.GetString(7),
+                    FromDatabaseTime(reader.GetString(8))));
+            }
+
+            var hasMore = events.Count > maximumEvents;
+            if (hasMore) events.RemoveAt(events.Count - 1);
+            return ResultFactory.Success(new SessionEventReplayPage([.. events], hasMore));
+        }
+        catch (SqliteException exception)
+        {
+            return ResultFactory.Failure<SessionEventReplayPage>(Problem.Storage($"Archy could not read the session event replay page: {exception.Message}"));
         }
     }
 

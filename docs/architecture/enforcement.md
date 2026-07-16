@@ -28,3 +28,18 @@ On macOS and other POSIX hosts, install the local gate with `archy hooks install
 Installation is reversible and idempotent. If either hook already exists, Archy moves it to the adjacent `*.archy-legacy` path and executes it first with its original arguments. The pre-push wrapper also preserves the original hook's standard input. Uninstall removes only a wrapper bearing Archy's versioned header and restores the preserved file byte-for-byte; it refuses to delete an unowned hook or an orphaned preservation file.
 
 The wrappers never verify the developer's mutable checkout. Pre-commit writes the staged Git tree, and pre-push writes each distinct local tree that differs from its remote target, to a temporary Git repository. Each temporary tree gets isolated Archy state, is initialized, and then runs the canonical `archy verify`. This prevents unstaged files and persistent state from changing the enforcement result. As with all client-side Git hooks, `--no-verify` or local hook configuration can bypass the local gate; required CI remains the authoritative merge boundary.
+
+## Codex guidance and turn stops
+
+The Archy Codex plugin supplies MCP preflight tools and lifecycle hooks. `check_violation`, `get_module_rules`, `get_dependents`, `check_duplicate`, and `suggest_placement` are guidance tools: an agent or human may choose not to call them. Duplicate, placement, cohesion, documentation, and model-derived findings are advisory and never block a write, commit, or merge.
+
+The `SessionStart` hook adds bounded current architecture context. The `PostToolUse` hook runs only after a matching `Bash`, `Edit`, or `Write` operation has completed. It resolves bounded changed-path evidence, then runs the deterministic architecture check. If it finds an **introduced** deterministic coverage, direction, or cycle finding, it returns `continue: false` with remediation; this stops the current Codex turn after the edit. It does not and cannot prevent the already-completed write, prevent a user from starting another turn, or replace `archy verify`.
+
+Hook unavailability, configuration failures, and telemetry failures degrade to a concise reminder to run `archy verify`; they never silently report a successful verification. Plugin hooks are opt-in and must be reviewed and trusted by Codex. Use the repository plugin package only after the `archy` executable is on `PATH`; do not place API keys or bearer tokens in the package or hook configuration.
+
+## Required delivery setup
+
+1. Install the local Git gate with `archy hooks install`.
+2. Add the Archy GitHub Actions workflow and configure its reviewed binary version and SHA-256.
+3. Protect the target branch: require the unique `Archy / verify` status check, strict/up-to-date evaluation, code-owner review for architecture policy, and restrict bypass/direct push permissions.
+4. Treat Codex post-edit turn stops as fast feedback. Fix them before continuing, then rely on the local gate and required CI to enforce delivery.

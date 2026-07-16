@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "archy": {
+      "command": "archy",
+      "args": ["mcp", "stdio"],
+      "default_tools_approval_mode": "prompt"
+    }
+  }
+}

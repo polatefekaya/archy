@@ -1,0 +1,16 @@
+name: Bug report
+description: Report a reproducible Archy defect without disclosing source or credentials.
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include Archy version, OS/architecture, command, and sanitized output. Do not paste proprietary source or API keys.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: Provide the smallest safe reproduction and expected behavior.
+    validations:
+      required: true

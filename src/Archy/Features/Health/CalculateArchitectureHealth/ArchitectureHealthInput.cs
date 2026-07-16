@@ -1,0 +1,2 @@
+namespace Archy.Features.Health.CalculateArchitectureHealth;
+public sealed record ArchitectureHealthInput(long GraphRevision,int IntroducedBlockingViolations,int LegacyViolations,int ActiveDuplicateFindings,double DocumentationDebtRatio,double DecisionResolutionDebt,IReadOnlyList<string> ResolutionDecisionIds);
