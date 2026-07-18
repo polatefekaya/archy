@@ -1,6 +1,6 @@
 {
   "name": "archy",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Architecture-aware MCP tools and lifecycle guidance for Codex.",
   "author": {
     "name": "Polat Efe Kaya"
