@@ -1,5 +1,8 @@
 using Archy.Features.Integrations.Mcp.RunMcpServer;
 using Archy.Features.Integrations.Codex.RecordHookEvents;
+using Archy.Features.Duplicates.EmbeddingCache;
+using Archy.Features.Duplicates.IndexEmbeddings;
+using Archy.Features.Memory.AuthorizeAiSourceSharing;
 using Microsoft.Extensions.DependencyInjection;
 using Mediator;
 namespace Archy.Features.CommandLine.Integrations;
@@ -46,7 +49,12 @@ public static class McpCli
         new CheckViolationMcpTool(mediator),
         new GetModuleRulesMcpTool(mediator),
         new CheckDuplicateMcpTool(),
-        new FindSimilarMcpTool(),
+        new FindSimilarMcpTool(
+            mediator,
+            serviceProvider?.GetService<IEmbeddingCacheRepository>(),
+            serviceProvider?.GetService<IEmbeddingCacheResolver>(),
+            serviceProvider?.GetService<IEmbeddingModelProviderResolver>(),
+            serviceProvider?.GetService<IRepositoryAiConsentPolicy>()),
         new SuggestPlacementMcpTool(),
         new RecordDecisionMcpTool(serviceProvider?.GetService<IHookEventPublisher>()),
         new GetDecisionsMcpTool(),

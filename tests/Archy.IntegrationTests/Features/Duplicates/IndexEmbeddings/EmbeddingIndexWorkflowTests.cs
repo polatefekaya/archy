@@ -50,6 +50,25 @@ public sealed class EmbeddingIndexWorkflowTests
     }
 
     [Fact]
+    public async Task PlansPublicTypeContentWhenTheGraphContainsNoMethodNodes()
+    {
+        using var fixture = WorkspaceStateFixture.Create();
+        var initialized = await fixture.InitializeAsync(); Assert.True(initialized.IsSuccess);
+        Directory.CreateDirectory(Path.Combine(fixture.Repository.Root, "src"));
+        await File.WriteAllTextAsync(Path.Combine(fixture.Repository.Root, "src", "Coordinator.cs"), "namespace Sample;\n/// <summary>Coordinates work.</summary>\npublic sealed class Coordinator { public void Execute() { } }");
+        var type = new GraphNodeFact("type:Coordinator", "class", "Sample.Coordinator", "Coordinator", "src/Coordinator.cs", 3, 3, "test", 1, "{}", new string('a', 64));
+        await GraphRevisionTestBuilder.CommitAsync(initialized.Value.StateLocation, [type], symbols: [PublicSymbol(type.StableId)]);
+        var reader = new EmbeddingIndexSourceReader(new GraphRevisionSnapshotReader(new WorkspaceLockManager(TimeProvider.System)), new ImportantNodeEligibilityPolicy(), new CSharpEmbeddingChunkSelector());
+
+        var plan = await reader.ReadAsync(initialized.Value.StateLocation, fixture.Repository.Root, Configuration(), 10, CancellationToken.None);
+
+        Assert.True(plan.IsSuccess);
+        var chunk = Assert.Single(plan.Value!.Chunks);
+        Assert.Equal(type.StableId, chunk.MethodStableId);
+        Assert.Contains("Coordinator", chunk.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task StatusReturnsStatisticsWithoutVectorContents()
     {
         using var fixture = WorkspaceStateFixture.Create(); var initialized = await fixture.InitializeAsync(); Assert.True(initialized.IsSuccess);

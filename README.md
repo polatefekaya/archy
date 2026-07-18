@@ -246,7 +246,14 @@ Optional AI-assisted features must never receive credentials through `archy.toml
 
 ### Use semantic similarity (optional embeddings)
 
-Before creating a new handler, service, module, or abstraction, ask Archy to look for existing code with similar names, signatures, and dependency neighborhoods. The read-only `find_similar` MCP tool returns ranked candidates with an explanation for every score component:
+Before creating a new handler, service, module, or abstraction, ask Archy to look for existing code with similar names, signatures, and dependency neighborhoods. The read-only `find_similar` MCP tool accepts any one of:
+
+- `query`: a natural-language intent;
+- `sourceStableId`: an existing persisted declaration;
+- `sourceFilePath`: a repository-relative source file; or
+- `sourceCode`: a bounded pasted code snippet.
+
+It returns ranked candidates with an explanation for every score component:
 
 - `symbol`: normalized query/name/canonical-identity overlap;
 - `structure`: persisted symbol-signature overlap;
@@ -260,11 +267,22 @@ Before implementing this, use find_similar to locate existing session lifecycle 
 Prefer reuse or extension when the evidence is strong; explain why a new abstraction is necessary otherwise.
 ```
 
-`find_similar` never generates an embedding or sends source code. Without indexed vectors it still returns deterministic graph evidence and explicitly marks semantic evidence as unavailable—this is not a claim that no semantically similar code exists.
+For files and symbols, Archy resolves the corresponding persisted declaration automatically, so callers do not need to manually find a stable ID. Without indexed vectors it still returns deterministic graph evidence and explicitly marks semantic evidence as unavailable—this is not a claim that no semantically similar code exists.
 
 ### Opt-in embedding index
 
-Embedding generation is disabled until the repository explicitly permits source sharing. Add the following to `archy.toml`; do not put credentials in this file:
+Embedding generation is disabled until the repository explicitly permits source sharing. Set `OPENAI_API_KEY` in your environment, then run the guided command:
+
+```sh
+export OPENAI_API_KEY="..."
+archy embeddings setup --allow-source-sharing --path .
+archy analyze --path .
+archy embeddings index --path .
+```
+
+`setup` records `provider = "openai"`, `embedding_model = "text-embedding-3-large"`, and `source_sharing = "summaries_and_embeddings"` in the repository configuration. It refuses to write anything without both the environment key and the explicit `--allow-source-sharing` flag. Do not put credentials in `archy.toml`.
+
+To configure it manually instead:
 
 ```toml
 [model]
@@ -287,7 +305,7 @@ archy embeddings status --path . --json
 
 `--dry-run` performs no provider request and writes no cache rows; use it to inspect the bounded method-chunk plan before any source leaves your machine. `status` shows cache count, dimensions, latest cache timestamp, effective provider, and consent state without exposing vectors. Generated vectors are stored in Archy’s machine-local state, never in repository files.
 
-After indexing, use `find_similar` with both a method `sourceStableId` and the indexed `embeddingModel` (for example `text-embedding-3-large`) to add cached cosine-similarity evidence. The MCP tool does not require or accept API keys.
+After indexing, `find_similar` automatically uses the configured embedding model for symbol and file inputs when compatible cached vectors exist. For an intent query, pasted snippet, or file, it may create one bounded query vector and cache it locally—but only after the repository has opted into `summaries_and_embeddings`; otherwise it stays entirely structural. You can still supply `embeddingModel` to select a particular cache. The MCP tool does not require or accept API keys.
 
 ## Important limits
 

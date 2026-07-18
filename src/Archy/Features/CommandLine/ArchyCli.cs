@@ -85,6 +85,7 @@ public static class ArchyCli
         Console.WriteLine("  archy hooks install|uninstall|status [--path <path>] [--json]");
         Console.WriteLine("  archy mcp stdio [<workspace-path>]");
         Console.WriteLine("  archy mcp http --port <1-65535> --token <token> [<workspace-path>]");
+        Console.WriteLine("  archy embeddings setup --allow-source-sharing [--path <path>] [--model <model-id>]");
         Console.WriteLine("  archy embeddings index|status [--path <path>] [--model <model-id>] [--json]");
         Console.WriteLine("  archy web serve [--port <1-65535>] [--path <path>]");
         Console.WriteLine("  archy db check|backup|restore|vacuum|diagnostics [--path <path>] [--state-root <path>] [--config <path>] [--json]");

@@ -8,7 +8,8 @@ public static class EmbeddingsCli
     {
         "index" => IndexEmbeddingsCli.RunAsync(args[1..], mediator, cancellationToken),
         "status" => EmbeddingStatusCli.RunAsync(args[1..], mediator, cancellationToken),
+        "setup" => SetupEmbeddingsCli.RunAsync(args[1..], mediator, cancellationToken),
         _ => HelpAsync(),
     };
-    private static Task<int> HelpAsync() { Console.WriteLine("Usage: archy embeddings index|status [--path <path>] [--model <model-id>] [--max-chunks <1-2048>] [--dry-run] [--json]"); return Task.FromResult(0); }
+    private static Task<int> HelpAsync() { Console.WriteLine("Usage: archy embeddings setup|index|status [--path <path>] [--model <model-id>] [--max-chunks <1-2048>] [--dry-run] [--json]"); return Task.FromResult(0); }
 }
