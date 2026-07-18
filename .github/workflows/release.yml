@@ -63,14 +63,14 @@ jobs:
           if git rev-parse -q --verify "refs/tags/$current_tag" >/dev/null; then
             version=$(sh scripts/release/version.sh next "$RELEASE_TYPE")
           else
-            latest_tag=$(git tag -l 'v[0-9]*' --sort=-version:refname | head -n 1)
-            if [ -n "$latest_tag" ]; then
-              test "$(git log -1 --format=%s)" = "chore(release): v$current" || {
-                echo "Repository version $current is not tagged and is not a prepared release candidate. Resolve the version history before releasing." >&2
-                exit 64
-              }
+            if test "$(git log -1 --format=%s)" = "chore(release): v$current"; then
+              version=$current
+            else
+              # A prior failed release may already have reserved this version.
+              # Any reviewed commit after that reservation is released as the
+              # requested next version rather than reusing stale metadata.
+              version=$(sh scripts/release/version.sh next "$RELEASE_TYPE")
             fi
-            version=$current
           fi
 
           tag="v$version"
