@@ -1,6 +1,6 @@
 {
   "name": "archy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Architecture-aware MCP tools and lifecycle guidance for Codex.",
   "author": {
     "name": "Archy contributors"
