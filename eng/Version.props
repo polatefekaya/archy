@@ -1,6 +1,6 @@
 <Project>
   <!-- The single repository-owned release version. Updated only by the release workflow. -->
   <PropertyGroup>
-    <ArchyVersion>0.1.1</ArchyVersion>
+    <ArchyVersion>0.1.2</ArchyVersion>
   </PropertyGroup>
 </Project>
