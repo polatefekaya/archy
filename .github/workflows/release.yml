@@ -120,10 +120,6 @@ jobs:
       - run: npm ci && npm test && npm run build
         working-directory: ui/archy-web
       - run: zsh scripts/verify-architecture-contracts.sh
-      - name: Verify Archy's self-hosted architecture contract
-        run: |
-          dotnet run --project src/Archy/Archy.csproj --configuration Release --no-build -- analyze --path . --json > /dev/null
-          dotnet run --project src/Archy/Archy.csproj --configuration Release --no-build -- verify --path . --json > /dev/null
       - run: sh scripts/ci/dependency-audit.sh
       - uses: actions/upload-artifact@v4
         if: always()

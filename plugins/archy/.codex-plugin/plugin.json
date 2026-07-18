@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "description": "Architecture-aware MCP tools and lifecycle guidance for Codex.",
   "author": {
-    "name": "Archy contributors"
+    "name": "Polat Efe Kaya"
   },
   "repository": "https://github.com/polatefekaya/archy",
   "keywords": ["architecture", "mcp", "codex", "dotnet"],
@@ -13,7 +13,7 @@
     "displayName": "Archy",
     "shortDescription": "Architecture-aware tools for local repositories.",
     "longDescription": "Provides read-first architectural preflight, durable decisions, and session lifecycle guidance for a single repository.",
-    "developerName": "Archy contributors",
+    "developerName": "Polat Efe Kaya",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
     "defaultPrompt": [
