@@ -16,6 +16,10 @@
     "developerName": "Polat Efe Kaya",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
+    "brandColor": "#2563EB",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png",
+    "logoDark": "./assets/icon.png",
     "defaultPrompt": [
       "Check the relevant Archy rules before changing this boundary.",
       "Use Archy to find the right placement for this proposed code."

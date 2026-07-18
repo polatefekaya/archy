@@ -9,7 +9,7 @@ Archy analyzes one Git repository at a time, stores its versioned architecture g
 - Where should a new capability live, and what evidence supports that answer?
 - Which decisions, summaries, and health signals apply to this area of the codebase?
 
-Archy is a local .NET 10 Native AOT application. Version `0.1.0` supports macOS on Apple Silicon and Intel, with C# as the initial language profile. It runs without a globally installed .NET runtime after release installation.
+Archy is a local .NET 10 Native AOT application. Version `0.1.2` supports macOS on Apple Silicon and Intel, with C# as the initial language profile. It runs without a globally installed .NET runtime after release installation.
 
 > Archy separates facts from advice. Only configured, deterministic, confidence-`1.0` graph facts can fail `archy verify`. Summaries, duplicate findings, placement suggestions, and health scores remain evidence-backed advisories.
 
@@ -24,6 +24,7 @@ Choose the path that matches what you want to do:
 | Use architecture context from Codex | [Connect Codex](#connect-codex-plugin-mcp-and-hooks) |
 | Make architecture checks a merge gate | [Enforce delivery](#enforce-delivery-local-hooks-and-ci) |
 | Browse a graph locally | [Use the local web app](#use-the-local-web-app) |
+| Find existing code before writing new code | [Use semantic similarity](#use-semantic-similarity-optional-embeddings) |
 
 ## What Archy does today
 
@@ -31,7 +32,7 @@ Choose the path that matches what you want to do:
 - Enforces configured layer coverage, illegal deterministic dependency directions, and deterministic cycles locally or in CI; exports SARIF for code scanning.
 - Serves a local React/Tailwind graph explorer with nodes, edges, evidence, blast radius, session replay, health, duplicate, and placement views.
 - Understands focused deterministic questions: `what uses …?`, `what does … use?`, and `what breaks if I delete …?`.
-- Provides Codex MCP preflight tools for rules, dependents, placement, duplicates, sessions, decisions, and summary flushing.
+- Provides Codex MCP preflight tools for rules, dependents, placement, duplicates, semantic similarity, sessions, decisions, and summary flushing.
 - Adds opt-in Codex lifecycle guidance: session context, post-tool checks after `Bash`, `Edit`, or `Write`, and session finalization.
 - Keeps graph, decision, session, summary, backup, and diagnostic state outside the repository.
 
@@ -40,7 +41,7 @@ Choose the path that matches what you want to do:
 Download the archive matching your Mac, verify its checksum, and run the included installer. `arm64` is Apple Silicon; `x64` is Intel.
 
 ```sh
-ARCHY_VERSION=0.1.0
+ARCHY_VERSION=0.1.2
 
 case "$(uname -m)" in
   arm64) ARCHY_ARCH=arm64 ;;
@@ -121,7 +122,7 @@ Archy’s Codex plugin starts `archy mcp stdio` for the current repository and c
 ### Install from the public Git marketplace
 
 ```sh
-codex plugin marketplace add polatefekaya/archy --ref v0.1.0
+codex plugin marketplace add polatefekaya/archy --ref v0.1.2
 codex plugin add archy@archy
 ```
 
@@ -243,6 +244,24 @@ Restore only from an explicit backup after stopping Archy. Schema and migration 
 
 Optional AI-assisted features must never receive credentials through `archy.toml`. Keep keys in the environment or supported secure storage; review consent and redaction configuration before authorizing any source sharing. A model, LSP, or sidecar outage is shown as degraded coverage rather than a false architectural pass.
 
+### Use semantic similarity (optional embeddings)
+
+Before creating a new handler, service, module, or abstraction, ask Archy to look for existing code with similar names, signatures, and dependency neighborhoods. The read-only `find_similar` MCP tool returns ranked candidates with an explanation for every score component:
+
+- `symbol`: normalized query/name/canonical-identity overlap;
+- `structure`: persisted symbol-signature overlap;
+- `dependency_neighborhood`: shared persisted dependencies when you provide an existing `sourceStableId`;
+- `embedding`: cached cosine similarity, only when compatible vectors exist for the supplied model.
+
+Use it from Codex with a prompt such as:
+
+```text
+Before implementing this, use find_similar to locate existing session lifecycle patterns.
+Prefer reuse or extension when the evidence is strong; explain why a new abstraction is necessary otherwise.
+```
+
+`find_similar` never generates an embedding or sends source code. Without indexed vectors it still returns deterministic graph evidence and explicitly marks semantic evidence as unavailable—this is not a claim that no semantically similar code exists.
+
 ### Opt-in embedding index
 
 Embedding generation is disabled until the repository explicitly permits source sharing. Add the following to `archy.toml`; do not put credentials in this file:
@@ -266,7 +285,9 @@ archy embeddings index --path .
 archy embeddings status --path . --json
 ```
 
-`--dry-run` performs no provider request and writes no cache rows. Generated vectors are stored in Archy’s machine-local state, never in repository files. Afterwards, pass a method `sourceStableId` and the indexed `embeddingModel` to the read-only `find_similar` MCP tool to receive cached cosine-similarity evidence.
+`--dry-run` performs no provider request and writes no cache rows; use it to inspect the bounded method-chunk plan before any source leaves your machine. `status` shows cache count, dimensions, latest cache timestamp, effective provider, and consent state without exposing vectors. Generated vectors are stored in Archy’s machine-local state, never in repository files.
+
+After indexing, use `find_similar` with both a method `sourceStableId` and the indexed `embeddingModel` (for example `text-embedding-3-large`) to add cached cosine-similarity evidence. The MCP tool does not require or accept API keys.
 
 ## Important limits
 
