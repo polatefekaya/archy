@@ -1,9 +1,9 @@
 <!-- archy:begin -->
 ## Archy architecture snapshot
-Graph revision: 13
+Graph revision: 19
 
 ### Resolved layer conventions
-- None.
+- ArchyProduct: includes src/**/*.cs; may depend on no declared external layer.
 
 ### Active exceptions
 - None.

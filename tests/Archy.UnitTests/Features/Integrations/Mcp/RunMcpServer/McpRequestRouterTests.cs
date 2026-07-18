@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Archy.Features.CommandLine;
 using Archy.Features.Integrations.Mcp.RunMcpServer;
 using Archy.Features.Workspaces.InitializeWorkspace;
 
@@ -29,6 +30,22 @@ public sealed class McpRequestRouterTests
 
         using var document = JsonDocument.Parse(response!);
         Assert.Equal(-32700, document.RootElement.GetProperty("error").GetProperty("code").GetInt32());
+    }
+
+    [Fact]
+    public async Task InitializeReportsTheRunningArchyReleaseVersion()
+    {
+        var router = new McpRequestRouter(new McpToolCatalog([]));
+
+        var response = await router.RouteAsync(
+            """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}""",
+            Workspace(),
+            CancellationToken.None);
+
+        using var document = JsonDocument.Parse(response!);
+        Assert.Equal(
+            ArchyProductMetadata.Version,
+            document.RootElement.GetProperty("result").GetProperty("serverInfo").GetProperty("version").GetString());
     }
 
     private static McpWorkspaceContext Workspace() => new("/repository", new WorkspaceStateLocation("workspace", "/state", "/state/manifest", "/state/lock", "/state/archy.db"));

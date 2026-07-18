@@ -7,6 +7,7 @@ using Archy.Features.CommandLine.Integrations.CodexHooks;
 using Archy.Features.CommandLine.Workspace;
 using Archy.Features.CommandLine.WorkspaceDatabase;
 using Archy.Features.CommandLine.Web;
+using Archy.Features.CommandLine.Embeddings;
 using Mediator;
 
 namespace Archy.Features.CommandLine;
@@ -53,6 +54,7 @@ public static class ArchyCli
             "exception" => ArchitectureExceptionCli.RunAsync(args[1..], mediator, cancellationToken),
             "hooks" => GitHooksCli.RunAsync(args[1..], mediator, cancellationToken),
             "mcp" => McpCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
+            "embeddings" => EmbeddingsCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
             "web" => WebCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
             "codex-hook" => CodexHookCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
             _ => UnknownCommandAsync(),
@@ -82,6 +84,8 @@ public static class ArchyCli
         Console.WriteLine("  archy exception accept --finding <key> --author <author> --reason <reason> --review-at <ISO-8601> --expires-at <ISO-8601> [--path <path>] [--state-root <path>] [--config <path>] [--json]");
         Console.WriteLine("  archy hooks install|uninstall|status [--path <path>] [--json]");
         Console.WriteLine("  archy mcp stdio [<workspace-path>]");
+        Console.WriteLine("  archy mcp http --port <1-65535> --token <token> [<workspace-path>]");
+        Console.WriteLine("  archy embeddings index|status [--path <path>] [--model <model-id>] [--json]");
         Console.WriteLine("  archy web serve [--port <1-65535>] [--path <path>]");
         Console.WriteLine("  archy db check|backup|restore|vacuum|diagnostics [--path <path>] [--state-root <path>] [--config <path>] [--json]");
     }

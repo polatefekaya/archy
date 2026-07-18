@@ -4,7 +4,9 @@ namespace Archy.IntegrationTests.TestInfrastructure;
 
 internal static class ArchyProcess
 {
-    public static async Task<ArchyProcessResult> RunAsync(params string[] arguments)
+    public static async Task<ArchyProcessResult> RunAsync(params string[] arguments) => await RunAsync(environment: null, arguments);
+
+    public static async Task<ArchyProcessResult> RunAsync(IReadOnlyDictionary<string, string>? environment, params string[] arguments)
     {
         var assemblyPath = Path.Combine(AppContext.BaseDirectory, "Archy.dll");
         Assert.True(File.Exists(assemblyPath), $"The Archy host assembly '{assemblyPath}' was not copied to the test output.");
@@ -15,6 +17,10 @@ internal static class ArchyProcess
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
+        if (environment is not null)
+        {
+            foreach (var pair in environment) startInfo.Environment[pair.Key] = pair.Value;
+        }
         startInfo.ArgumentList.Add(assemblyPath);
         foreach (var argument in arguments)
         {

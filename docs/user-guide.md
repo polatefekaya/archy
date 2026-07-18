@@ -30,6 +30,22 @@ The web host binds to loopback only. It serves the graph, bounded traversal, pro
 
 Use `archy mcp stdio` for a local MCP client. The Codex plugin in `plugins/archy` uses that transport. Start a session, preflight a change, record decisions, and end the session through the provided MCP tools. A post-write hook can stop further agent work after a deterministic violation, but no hook can claim to undo a write that already happened.
 
+## Find similar existing code
+
+Use the `find_similar` MCP tool before introducing a new service, handler, or abstraction. It ranks persisted graph candidates with separately reported symbol, structural-signature, and dependency-neighborhood evidence. Pass an existing `sourceStableId` to compare dependency neighborhoods. Passing both `sourceStableId` and `embeddingModel` additionally enables cached cosine-similarity evidence only when compatible vectors already exist for that exact model; the read-only tool never sends source code or generates a new embedding. Missing graph or vector evidence is reported as an abstention or unavailable evidence, never as a negative claim that no similar code exists.
+
+## Index embeddings
+
+After `archy analyze` has created an active graph, repositories that explicitly set `[memory] source_sharing = "summaries_and_embeddings"` and configure an OpenAI embedding model can index eligible public C# methods:
+
+```sh
+archy embeddings index --path . --dry-run
+archy embeddings index --path .
+archy embeddings status --path . --json
+```
+
+The dry run reports eligible, cached, and would-send chunks without an API call or cache write. Real indexing uses `OPENAI_API_KEY` from the environment and stores vectors only in machine-local Archy state. Use `--model` to select a configured-provider-compatible model and `--max-chunks` to bound one run.
+
 ## What Archy guarantees
 
 Strict verification is limited to configured hard edge kinds with confidence `1.0`. It produces a non-zero verification outcome for introduced, deterministic violations. Baselines and exceptions are explicit repository policy artifacts and never permit an expired exception.

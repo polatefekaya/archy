@@ -9,6 +9,41 @@ namespace Archy.Features.Duplicates.EmbeddingCache;
 /// <summary>Append-only cache rows make reuse exact while retaining the revision that created each vector.</summary>
 public sealed class EmbeddingCacheRepository(TimeProvider timeProvider, IWorkspaceLockManager lockManager) : IEmbeddingCacheRepository
 {
+    public async ValueTask<Result<EmbeddingCacheStatistics>> ReadStatisticsAsync(WorkspaceStateLocation location, string modelId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(modelId)) return ResultFactory.Failure<EmbeddingCacheStatistics>(Problem.Validation("Embedding cache statistics require a model."));
+        var lease = await lockManager.AcquireAsync(location, WorkspaceLockMode.Read, TimeSpan.FromSeconds(30), cancellationToken);
+        if (!lease.IsSuccess) return ResultFactory.Failure<EmbeddingCacheStatistics>(lease.Problem!);
+        using var held = lease.Value;
+        try
+        {
+            SQLitePCL.Batteries_V2.Init(); await using var connection = new SqliteConnection($"Data Source={location.DatabasePath}"); await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand(); command.CommandText = "SELECT vector_dimensions, COUNT(*), MAX(created_at_utc) FROM embedding_cache_entries WHERE workspace_id=$workspaceId AND model_id=$modelId GROUP BY vector_dimensions ORDER BY vector_dimensions;";
+            command.Parameters.AddWithValue("$workspaceId", location.WorkspaceId); command.Parameters.AddWithValue("$modelId", modelId);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken); var dimensions = new Dictionary<int, int>(); var count = 0; DateTimeOffset? latest = null;
+            while (await reader.ReadAsync(cancellationToken)) { var dimension = reader.GetInt32(0); var dimensionCount = reader.GetInt32(1); dimensions.Add(dimension, dimensionCount); count += dimensionCount; if (!reader.IsDBNull(2)) { var timestamp = DateTimeOffset.Parse(reader.GetString(2), System.Globalization.CultureInfo.InvariantCulture); if (latest is null || timestamp > latest) latest = timestamp; } }
+            return ResultFactory.Success(new EmbeddingCacheStatistics(count, dimensions, latest));
+        }
+        catch (SqliteException exception) { return ResultFactory.Failure<EmbeddingCacheStatistics>(Problem.Storage($"Archy could not read embedding cache statistics: {exception.Message}")); }
+    }
+
+    public async ValueTask<Result<IReadOnlyList<EmbeddingCacheEntry>>> ListByModelAsync(WorkspaceStateLocation location, string modelId, int limit, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(modelId) || limit is < 1 or > 2048) return ResultFactory.Failure<IReadOnlyList<EmbeddingCacheEntry>>(Problem.Validation("Embedding cache listing requires a model and a limit from 1 through 2048."));
+        var lease = await lockManager.AcquireAsync(location, WorkspaceLockMode.Read, TimeSpan.FromSeconds(30), cancellationToken);
+        if (!lease.IsSuccess) return ResultFactory.Failure<IReadOnlyList<EmbeddingCacheEntry>>(lease.Problem!);
+        using var held = lease.Value;
+        try
+        {
+            SQLitePCL.Batteries_V2.Init(); await using var connection = new SqliteConnection($"Data Source={location.DatabasePath}"); await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand(); command.CommandText = "SELECT method_stable_id, content_hash, vector_json, created_graph_revision, created_at_utc FROM embedding_cache_entries WHERE workspace_id=$workspaceId AND model_id=$modelId ORDER BY created_at_utc DESC LIMIT $limit;";
+            command.Parameters.AddWithValue("$workspaceId", location.WorkspaceId); command.Parameters.AddWithValue("$modelId", modelId); command.Parameters.AddWithValue("$limit", limit);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken); var entries = new List<EmbeddingCacheEntry>();
+            while (await reader.ReadAsync(cancellationToken)) { var vector = DeserializeVector(reader.GetString(2)); if (vector is null) continue; entries.Add(new(new(reader.GetString(0), modelId, reader.GetString(1)), vector, reader.GetInt64(3), DateTimeOffset.Parse(reader.GetString(4), System.Globalization.CultureInfo.InvariantCulture))); }
+            return ResultFactory.Success<IReadOnlyList<EmbeddingCacheEntry>>(entries);
+        }
+        catch (SqliteException exception) { return ResultFactory.Failure<IReadOnlyList<EmbeddingCacheEntry>>(Problem.Storage($"Archy could not list embedding cache entries: {exception.Message}")); }
+    }
     public async ValueTask<Result<EmbeddingCacheEntry?>> FindAsync(WorkspaceStateLocation location, EmbeddingCacheKey key, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(location);

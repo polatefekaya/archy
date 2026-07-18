@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Archy.Features.CommandLine;
 
 namespace Archy.Features.Integrations.Mcp.RunMcpServer;
 
@@ -57,7 +58,7 @@ public sealed class McpRequestRouter(McpToolCatalog tools)
 
         if (method.GetString() == "initialize")
         {
-            return Result(id, "{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{\"tools\":{}},\"instructions\":\"Use Archy tools for preflight and post-edit guidance. Deterministic violations are reported separately; Archy cannot block arbitrary writes.\",\"serverInfo\":{\"name\":\"archy\",\"version\":\"0.1.0-dev\"}}");
+            return Result(id, $"{{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{{\"tools\":{{}}}},\"instructions\":\"Use Archy tools for preflight and post-edit guidance. Deterministic violations are reported separately; Archy cannot block arbitrary writes.\",\"serverInfo\":{{\"name\":\"archy\",\"version\":{McpJson.String(ArchyProductMetadata.Version)}}}}}");
         }
 
         if (method.GetString() == "tools/list")

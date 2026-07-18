@@ -46,6 +46,7 @@ public static class McpCli
         new CheckViolationMcpTool(mediator),
         new GetModuleRulesMcpTool(mediator),
         new CheckDuplicateMcpTool(),
+        new FindSimilarMcpTool(),
         new SuggestPlacementMcpTool(),
         new RecordDecisionMcpTool(serviceProvider?.GetService<IHookEventPublisher>()),
         new GetDecisionsMcpTool(),

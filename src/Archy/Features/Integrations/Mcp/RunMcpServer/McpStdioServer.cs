@@ -7,12 +7,13 @@ public sealed class McpStdioServer(McpWorkspaceContextFactory workspaceFactory, 
 {
     public async Task<int> RunAsync(string workspacePath, CancellationToken cancellationToken)
     {
-        var workspace = await workspaceFactory.CreateAsync(workspacePath, cancellationToken);
-        if (workspace is null)
+        var workspaceResult = await workspaceFactory.CreateResultAsync(workspacePath, cancellationToken);
+        if (!workspaceResult.IsSuccess)
         {
-            McpStdioTerminalScreen.WriteUnavailable(workspacePath);
+            McpStdioTerminalScreen.WriteUnavailable(workspacePath, workspaceResult.Problem!);
             return 2;
         }
+        var workspace = workspaceResult.Value;
 
         McpStdioTerminalScreen.WriteReady(workspace, router.ToolCount);
         while (!cancellationToken.IsCancellationRequested)

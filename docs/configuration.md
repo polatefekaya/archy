@@ -90,6 +90,10 @@ embedding_model = "text-embedding-3-large"
 max_requests_per_run = 30
 max_tokens_per_run = 200000
 
+[memory]
+# Required before Archy may send source-derived method chunks for embeddings.
+source_sharing = "summaries_and_embeddings"
+
 [sidecars]
 jscpd_command = "jscpd"
 louvain_command = "python3"
@@ -104,6 +108,8 @@ duplicates = 0.20
 documentation = 0.20
 decisions = 0.20
 ```
+
+Embedding indexing requires both `model.embedding_model` and `memory.source_sharing = "summaries_and_embeddings"`. Credentials are read only from `OPENAI_API_KEY`; never commit them to TOML. `model.provider = "disabled"` prevents real indexing. Cached vectors and their provenance are stored solely in Archy’s local workspace state.
 
 `language_server_profiles` is the extension point for every standard-LSP language. A profile declares the language ID sent in `didOpen`, source extensions, activation markers, executable, argument array, canonical-identity prefix, LSP `SymbolKind` mapping, and a bounded `max_symbol_queries` limit. The limit applies independently to reference collection and outgoing-call collection, preventing an unexpectedly large snapshot from causing an unbounded number of server requests. Profiles upsert by `id` across configuration layers: a repository can add `typescript` without removing the built-in `csharp` profile, or replace the `csharp` profile to pin a server binary. No host registration, reflection, or dynamic plugin loading is involved.
 

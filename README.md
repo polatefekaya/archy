@@ -243,6 +243,31 @@ Restore only from an explicit backup after stopping Archy. Schema and migration 
 
 Optional AI-assisted features must never receive credentials through `archy.toml`. Keep keys in the environment or supported secure storage; review consent and redaction configuration before authorizing any source sharing. A model, LSP, or sidecar outage is shown as degraded coverage rather than a false architectural pass.
 
+### Opt-in embedding index
+
+Embedding generation is disabled until the repository explicitly permits source sharing. Add the following to `archy.toml`; do not put credentials in this file:
+
+```toml
+[model]
+provider = "openai"
+embedding_model = "text-embedding-3-large"
+max_requests_per_run = 30
+max_tokens_per_run = 200000
+
+[memory]
+source_sharing = "summaries_and_embeddings"
+```
+
+Set `OPENAI_API_KEY` in your shell or secret manager. Index only after analysis has produced an active graph:
+
+```sh
+archy embeddings index --path . --dry-run
+archy embeddings index --path .
+archy embeddings status --path . --json
+```
+
+`--dry-run` performs no provider request and writes no cache rows. Generated vectors are stored in Archy’s machine-local state, never in repository files. Afterwards, pass a method `sourceStableId` and the indexed `embeddingModel` to the read-only `find_similar` MCP tool to receive cached cosine-similarity evidence.
+
 ## Important limits
 
 - One graph belongs to one Git repository; cross-repository graphs are intentionally out of scope.

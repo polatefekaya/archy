@@ -1,0 +1,17 @@
+# Archy's self-hosted architecture contract. Every production C# file belongs to
+# this single bounded product layer; intra-layer dependencies are intentional.
+# New top-level product boundaries must become distinct layers before their
+# dependencies can be constrained independently.
+schema_version = 1
+
+[[layers]]
+name = "ArchyProduct"
+include = ["src/**/*.cs"]
+may_depend_on = []
+
+[enforcement]
+hard_edge_kinds = ["calls", "references", "inherits"]
+
+[scope]
+include = ["src/**/*.cs"]
+exclude = ["**/bin/**", "**/obj/**"]

@@ -5,14 +5,18 @@ using Archy.Features.Memory.ModelProviders.Contracts;
 namespace Archy.Features.Memory.ModelProviders.Deterministic;
 
 /// <summary>A deterministic, offline provider for contract tests and local orchestration tests.</summary>
-public sealed class DeterministicModelProvider(ModelProviderFailure? forcedFailure = null) : IModelProvider
+public sealed class DeterministicModelProvider : IModelProvider
 {
-    private static readonly ModelProviderDescriptor ProviderDescriptor = new(
-        "deterministic",
-        SupportsStructuredSummaries: true,
-        SupportsEmbeddings: true);
+    private readonly ModelProviderFailure? forcedFailure;
+    private readonly ModelProviderDescriptor providerDescriptor;
 
-    public ModelProviderDescriptor Descriptor => ProviderDescriptor;
+    public DeterministicModelProvider(ModelProviderFailure? forcedFailure = null, string providerId = "deterministic")
+    {
+        this.forcedFailure = forcedFailure;
+        providerDescriptor = new(providerId, SupportsStructuredSummaries: true, SupportsEmbeddings: true);
+    }
+
+    public ModelProviderDescriptor Descriptor => providerDescriptor;
 
     public ValueTask<ModelProviderResult<StructuredSummaryResponse>> GenerateSummaryAsync(
         SummaryGenerationRequest request,

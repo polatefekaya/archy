@@ -1,4 +1,5 @@
 using Archy.Features.Integrations.Mcp.RunMcpServer;
+using Archy.SharedKernel.Primitives;
 
 namespace Archy.Features.CommandLine.TerminalPresentation;
 
@@ -18,10 +19,10 @@ public static class McpStdioTerminalScreen
             "Operational messages use stderr; stdout is reserved for MCP JSON."));
     }
 
-    public static void WriteUnavailable(string workspacePath) =>
+    public static void WriteUnavailable(string workspacePath, Problem problem) =>
         TerminalCardWriter.WriteToStandardError(new TerminalCard(
             "ARCHY  ·  MCP UNAVAILABLE",
             "The repository workspace could not be initialized.",
-            [new TerminalDetail("Workspace", workspacePath)],
-            "Run archy workspace init, then retry."));
+            [new TerminalDetail("Workspace", workspacePath), new TerminalDetail("Reason", problem.Message)],
+            $"Error code: {problem.Code}. Resolve the reported issue, then retry."));
 }
