@@ -30,7 +30,14 @@ public sealed record ArchyConfigurationLayer(
     double? ArchitectureWeight,
     double? DuplicatesWeight,
     double? DocumentationWeight,
-    double? DecisionsWeight)
+    double? DecisionsWeight,
+    string? SimilarityPolicyVersion,
+    double? SimilarityEmbeddingWeight,
+    double? SimilaritySymbolWeight,
+    double? SimilaritySignatureWeight,
+    double? SimilarityDependencyNeighborhoodWeight,
+    double? SimilarityFileContextWeight,
+    double? SimilarityModuleContextWeight)
 {
     public ArchyConfiguration ApplyTo(ArchyConfiguration current, string sourcePath)
     {
@@ -99,6 +106,16 @@ public sealed record ArchyConfigurationLayer(
                 Duplicates = DuplicatesWeight ?? current.HealthWeights.Duplicates,
                 Documentation = DocumentationWeight ?? current.HealthWeights.Documentation,
                 Decisions = DecisionsWeight ?? current.HealthWeights.Decisions,
+            },
+            Similarity = current.Similarity with
+            {
+                PolicyVersion = SimilarityPolicyVersion ?? current.Similarity.PolicyVersion,
+                EmbeddingWeight = SimilarityEmbeddingWeight ?? current.Similarity.EmbeddingWeight,
+                SymbolWeight = SimilaritySymbolWeight ?? current.Similarity.SymbolWeight,
+                SignatureWeight = SimilaritySignatureWeight ?? current.Similarity.SignatureWeight,
+                DependencyNeighborhoodWeight = SimilarityDependencyNeighborhoodWeight ?? current.Similarity.DependencyNeighborhoodWeight,
+                FileContextWeight = SimilarityFileContextWeight ?? current.Similarity.FileContextWeight,
+                ModuleContextWeight = SimilarityModuleContextWeight ?? current.Similarity.ModuleContextWeight,
             },
         };
     }

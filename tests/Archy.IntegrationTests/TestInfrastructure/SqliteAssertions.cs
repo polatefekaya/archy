@@ -9,10 +9,10 @@ internal static class SqliteAssertions
         await using var connection = await OpenAsync(databasePath);
 
         Assert.Equal(
-            17L,
-            await ScalarLongAsync(connection, "SELECT COUNT(*) FROM schema_migrations WHERE version IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17);"));
+            19L,
+            await ScalarLongAsync(connection, "SELECT COUNT(*) FROM schema_migrations WHERE version IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);"));
         Assert.Equal(
-            17L,
+            19L,
             await ScalarLongAsync(
                 connection,
                 "SELECT COUNT(*) FROM schema_migrations WHERE name IS NOT NULL AND checksum IS NOT NULL AND length(checksum) = 64;"));

@@ -7,7 +7,7 @@ namespace Archy.Features.Graph.TraverseDependencies;
 
 public sealed class GraphTraversalReader(IWorkspaceLockManager lockManager) : IGraphTraversalReader
 {
-    private const int MaximumDepth = 6;
+    private const int MaximumDepth = 8;
     private const int MaximumEdges = 500;
 
     public async ValueTask<Result<GraphTraversal>> TraverseAsync(

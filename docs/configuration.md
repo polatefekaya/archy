@@ -16,6 +16,8 @@ Inspect the final result with:
 archy config show --path . --json
 ```
 
+Before initializing or analyzing a repository, inspect non-mutating readiness with `archy doctor --path . --json`. `archy doctor list --path . --json` emits every effective `language_server_profiles` entry with its command, source count, markers, readiness, and remediation. Neither command launches a language server or changes local state.
+
 The command only emits the typed configuration accepted by this schema; API keys are not a schema field and are never printed.
 
 ## Version 1 schema
@@ -107,11 +109,36 @@ architecture = 0.40
 duplicates = 0.20
 documentation = 0.20
 decisions = 0.20
+
+# Explainable hybrid similarity policy. All six weights are bounded to [0, 1]
+# and must sum to exactly 1.0 after configuration-layer merging.
+[similarity]
+policy_version = "hybrid-structural/v1"
+embedding_weight = 0.25
+symbol_weight = 0.25
+signature_weight = 0.15
+dependency_neighborhood_weight = 0.15
+file_context_weight = 0.10
+module_context_weight = 0.10
 ```
 
 Embedding indexing requires both `model.embedding_model` and `memory.source_sharing = "summaries_and_embeddings"`. Credentials are read only from `OPENAI_API_KEY`; never commit them to TOML. `model.provider = "disabled"` prevents real indexing. Cached vectors and their provenance are stored solely in Archy’s local workspace state.
 
-`language_server_profiles` is the extension point for every standard-LSP language. A profile declares the language ID sent in `didOpen`, source extensions, activation markers, executable, argument array, canonical-identity prefix, LSP `SymbolKind` mapping, and a bounded `max_symbol_queries` limit. The limit applies independently to reference collection and outgoing-call collection, preventing an unexpectedly large snapshot from causing an unbounded number of server requests. Profiles upsert by `id` across configuration layers: a repository can add `typescript` without removing the built-in `csharp` profile, or replace the `csharp` profile to pin a server binary. No host registration, reflection, or dynamic plugin loading is involved.
+`similarity` is repository-controlled and versioned. Archy includes the policy version in persisted similarity-cluster provenance, so changing weights cannot silently make a historical cluster look reproducible. Missing embedding evidence is never treated as a negative score; structural evidence is renormalized over the available families.
+
+`language_server_profiles` is the extension point for every standard-LSP language. A profile declares the language ID sent in `didOpen`, source extensions, activation markers, executable, argument array, canonical-identity prefix, LSP `SymbolKind` mapping, and a bounded `max_symbol_queries` limit. The limit applies independently to reference collection and outgoing-call collection, preventing an unexpectedly large snapshot from causing an unbounded number of server requests.
+
+The defaults include separate profiles for each LSP document language ID:
+
+| Profile | Extensions | Command |
+| --- | --- | --- |
+| `csharp` | `.cs` | `Microsoft.CodeAnalysis.LanguageServer --stdio` |
+| `javascript` | `.js`, `.mjs`, `.cjs` | `typescript-language-server --stdio` |
+| `javascriptreact` | `.jsx` | `typescript-language-server --stdio` |
+| `typescript` | `.ts`, `.mts`, `.cts` | `typescript-language-server --stdio` |
+| `typescriptreact` | `.tsx` | `typescript-language-server --stdio` |
+
+The JavaScript/TypeScript profiles activate when a matching source file and one of `package.json`, `jsconfig.json`, or `tsconfig.json` is present. Install both `typescript` and `typescript-language-server`, or override the relevant profile command with a reviewed executable path. Profiles upsert by `id` across configuration layers, so a repository can replace any built-in profile without removing the others. No host registration, reflection, or dynamic plugin loading is involved.
 
 Each `layers.include` value is a unique repository-relative glob; a node must match exactly one layer before it can participate in strict verification. `may_depend_on` may reference another declared layer, including one declared later in the file, but never the layer itself. `enforcement.hard_edge_kinds` is also strict: identifiers are lowercase and unique. Archy still independently requires an edge confidence of exactly `1.0` before it can block verification, so adding a provider edge kind to configuration cannot turn lower-confidence string/pattern evidence into a hard failure.
 

@@ -19,7 +19,7 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
         }
 
         var reader = new TomlConfigurationReader(sourcePath);
-        reader.EnsureAllowed(root, "root", "schema_version", "workspace", "storage", "language_server_profiles", "providers", "provider_patterns", "layers", "enforcement", "model", "memory", "sidecars", "scope", "health_weights");
+        reader.EnsureAllowed(root, "root", "schema_version", "workspace", "storage", "language_server_profiles", "providers", "provider_patterns", "layers", "enforcement", "model", "memory", "sidecars", "scope", "health_weights", "similarity");
 
         var schemaVersion = reader.OptionalInt(root, "schema_version", "root");
         if (schemaVersion is null)
@@ -79,6 +79,12 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
             reader.EnsureAllowed(healthWeights, "health_weights", "architecture", "duplicates", "documentation", "decisions");
         }
 
+        var similarity = reader.OptionalTable(root, "similarity", "root");
+        if (similarity is not null)
+        {
+            reader.EnsureAllowed(similarity, "similarity", "policy_version", "embedding_weight", "symbol_weight", "signature_weight", "dependency_neighborhood_weight", "file_context_weight", "module_context_weight");
+        }
+
         var enforcement = reader.OptionalTable(root, "enforcement", "root");
         if (enforcement is not null)
         {
@@ -130,7 +136,14 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
             ArchitectureWeight: reader.OptionalDouble(healthWeights, "architecture", "health_weights"),
             DuplicatesWeight: reader.OptionalDouble(healthWeights, "duplicates", "health_weights"),
             DocumentationWeight: reader.OptionalDouble(healthWeights, "documentation", "health_weights"),
-            DecisionsWeight: reader.OptionalDouble(healthWeights, "decisions", "health_weights"));
+            DecisionsWeight: reader.OptionalDouble(healthWeights, "decisions", "health_weights"),
+            SimilarityPolicyVersion: reader.OptionalString(similarity, "policy_version", "similarity"),
+            SimilarityEmbeddingWeight: reader.OptionalDouble(similarity, "embedding_weight", "similarity"),
+            SimilaritySymbolWeight: reader.OptionalDouble(similarity, "symbol_weight", "similarity"),
+            SimilaritySignatureWeight: reader.OptionalDouble(similarity, "signature_weight", "similarity"),
+            SimilarityDependencyNeighborhoodWeight: reader.OptionalDouble(similarity, "dependency_neighborhood_weight", "similarity"),
+            SimilarityFileContextWeight: reader.OptionalDouble(similarity, "file_context_weight", "similarity"),
+            SimilarityModuleContextWeight: reader.OptionalDouble(similarity, "module_context_weight", "similarity"));
 
         ValidateLayer(reader, layer);
 
@@ -403,6 +416,13 @@ public sealed class TomlConfigurationParser : ITomlConfigurationParser
         reader.ValidateNonNegativeWeight(layer.DuplicatesWeight, "health_weights.duplicates");
         reader.ValidateNonNegativeWeight(layer.DocumentationWeight, "health_weights.documentation");
         reader.ValidateNonNegativeWeight(layer.DecisionsWeight, "health_weights.decisions");
+        reader.ValidateOptionalNonEmpty(layer.SimilarityPolicyVersion, "similarity.policy_version");
+        reader.ValidateNonNegativeWeight(layer.SimilarityEmbeddingWeight, "similarity.embedding_weight");
+        reader.ValidateNonNegativeWeight(layer.SimilaritySymbolWeight, "similarity.symbol_weight");
+        reader.ValidateNonNegativeWeight(layer.SimilaritySignatureWeight, "similarity.signature_weight");
+        reader.ValidateNonNegativeWeight(layer.SimilarityDependencyNeighborhoodWeight, "similarity.dependency_neighborhood_weight");
+        reader.ValidateNonNegativeWeight(layer.SimilarityFileContextWeight, "similarity.file_context_weight");
+        reader.ValidateNonNegativeWeight(layer.SimilarityModuleContextWeight, "similarity.module_context_weight");
     }
 
     // Tomlyn's built-in untyped TOML model only needs one explicit type-info root.

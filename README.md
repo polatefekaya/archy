@@ -1,6 +1,6 @@
 # Archy
 
-**Architecture memory and deterministic delivery checks for C# repositories.**
+**Architecture memory and deterministic delivery checks for C#, JavaScript, and TypeScript repositories.**
 
 Archy analyzes one Git repository at a time, stores its versioned architecture graph outside the worktree, and gives developers and Codex concrete answers to questions such as:
 
@@ -9,7 +9,7 @@ Archy analyzes one Git repository at a time, stores its versioned architecture g
 - Where should a new capability live, and what evidence supports that answer?
 - Which decisions, summaries, and health signals apply to this area of the codebase?
 
-Archy is a local .NET 10 Native AOT application. Version `0.1.2` supports macOS on Apple Silicon and Intel, with C# as the initial language profile. It runs without a globally installed .NET runtime after release installation.
+Archy is a local .NET 10 Native AOT application. Version `0.2.0` supports macOS on Apple Silicon and Intel. C# analysis is built in; JavaScript, JSX, TypeScript, and TSX semantic analysis uses the built-in standard-LSP profiles when `typescript-language-server` and `typescript` are available on `PATH`. It runs without a globally installed .NET runtime after release installation.
 
 > Archy separates facts from advice. Only configured, deterministic, confidence-`1.0` graph facts can fail `archy verify`. Summaries, duplicate findings, placement suggestions, and health scores remain evidence-backed advisories.
 
@@ -28,7 +28,7 @@ Choose the path that matches what you want to do:
 
 ## What Archy does today
 
-- Builds a revisioned C# graph with source locations, confidence, provenance, evidence, and bounded dependency traversal.
+- Builds a revisioned C# graph and standard-LSP semantic graphs for JavaScript, JSX, TypeScript, and TSX, with source locations, confidence, provenance, evidence, and bounded dependency traversal.
 - Enforces configured layer coverage, illegal deterministic dependency directions, and deterministic cycles locally or in CI; exports SARIF for code scanning.
 - Serves a local React/Tailwind graph explorer with nodes, edges, evidence, blast radius, session replay, health, duplicate, and placement views.
 - Understands focused deterministic questions: `what uses …?`, `what does … use?`, and `what breaks if I delete …?`.
@@ -41,7 +41,7 @@ Choose the path that matches what you want to do:
 Download the archive matching your Mac, verify its checksum, and run the included installer. `arm64` is Apple Silicon; `x64` is Intel.
 
 ```sh
-ARCHY_VERSION=0.1.2
+ARCHY_VERSION=0.2.0
 
 case "$(uname -m)" in
   arm64) ARCHY_ARCH=arm64 ;;
@@ -113,7 +113,9 @@ archy verify --path .
 
 `workspace init` finds the owning Git repository and creates Archy state outside it. `analyze` creates or updates a graph revision. `verify` refreshes analysis and returns a non-zero result only for introduced deterministic findings. If you are adopting Archy in a repository with reviewed existing debt, use `archy baseline accept --path .`, inspect the generated `archy.baseline.json`, and commit it with `archy.toml`; never create a baseline merely to silence unknown findings.
 
-See the [configuration reference](docs/configuration.md) for language-server profiles, provider patterns, scope, sidecars, baselines, and time-bounded exceptions.
+Archy automatically inventories `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.mts`, `.cts`, and `.tsx` sources. Install `typescript` and `typescript-language-server` when you want semantic symbols, references, and outgoing-call facts for those files; without that executable Archy reports explicit degraded semantic coverage instead of inventing facts.
+
+See the [configuration reference](docs/configuration.md) for the built-in language-server profiles, provider patterns, scope, sidecars, baselines, and time-bounded exceptions.
 
 ## Connect Codex: plugin, MCP, and hooks
 
@@ -122,7 +124,7 @@ Archy’s Codex plugin starts `archy mcp stdio` for the current repository and c
 ### Install from the public Git marketplace
 
 ```sh
-codex plugin marketplace add polatefekaya/archy --ref v0.1.2
+codex plugin marketplace add polatefekaya/archy --ref v0.2.0
 codex plugin add archy@archy
 ```
 
@@ -161,7 +163,7 @@ For a non-Codex MCP client, use stdio directly:
 archy mcp stdio /absolute/path/to/repository
 ```
 
-This setup deliberately pins the plugin to a reviewed release tag. To move to a later release, remove the installed plugin and marketplace, replace `v0.1.0` with the new tag, then install again:
+This setup deliberately pins the plugin to a reviewed release tag. To move to a later release, remove the installed plugin and marketplace, replace the currently pinned tag with the new tag, then install again:
 
 ```sh
 codex plugin remove archy@archy
@@ -217,6 +219,12 @@ Open [http://127.0.0.1:8788](http://127.0.0.1:8788). The server is loopback-only
 5. Run `archy verify --path .` before committing.
 6. Let the local Git gate and required `Archy / verify` CI check protect delivery.
 
+## Diagnose readiness without changing state
+
+`archy doctor --path . --json` reports repository, effective configuration, existing local state/database, active graph, language-profile readiness, MCP availability, and embedding configuration. It is read-only: it never initializes a workspace, migrates a database, launches an LSP, runs analysis, or sends a model request. Exit code `2` means at least one blocking readiness error; warnings remain advisory.
+
+Use `archy doctor list --path . --json` to inspect every configured language profile, including profiles with no matching source files or unavailable executables. This is the quickest way to diagnose a missing marker, source inventory, or language-server command.
+
 ## Troubleshooting
 
 | Symptom | What to check |
@@ -225,6 +233,7 @@ Open [http://127.0.0.1:8788](http://127.0.0.1:8788). The server is loopback-only
 | Codex has no Archy tools | Run `codex plugin list` and `codex mcp list`; confirm the plugin is enabled, start a new task, and ensure `archy` is on `PATH`. |
 | Hooks do not run | Open `/hooks`, review/trust the Archy hooks, and confirm the project is trusted by Codex. |
 | `workspace has not been initialized` | Run `archy workspace init --path .` from the target Git repository. |
+| `doctor` reports `languages.<id>` | Run `archy doctor list --path . --json`; install/configure its command only when matching in-scope sources require semantic coverage. |
 | `verify` reports no configured layer rule | Add a reviewed `archy.toml` with at least one layer and run `archy config show --path . --json`. |
 | Layer coverage fails | Adjust layer globs until every in-scope C# source node matches exactly one layer. |
 | A sidecar or language server is unavailable | Install its declared runtime/executable; Archy reports this as degraded coverage, never as a successful semantic analysis. |
@@ -310,7 +319,7 @@ After indexing, `find_similar` automatically uses the configured embedding model
 ## Important limits
 
 - One graph belongs to one Git repository; cross-repository graphs are intentionally out of scope.
-- C# and macOS are the initial supported surface. Standard-LSP profiles are configuration-driven for future language support.
+- C# syntax/framework analysis and macOS are the initial supported surface. JavaScript, JSX, TypeScript, and TSX have built-in standard-LSP semantic profiles; language-specific framework providers remain future work.
 - Only exact-confidence deterministic facts can block. Advice always retains evidence and confidence.
 - Post-tool hooks happen after the operation they inspect.
 - Node and Python are required only for their respective optional sidecars.

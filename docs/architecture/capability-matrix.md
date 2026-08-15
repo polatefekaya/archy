@@ -5,7 +5,7 @@
 | Workspace discovery, state, config, lock | Implemented foundation | One Git root; macOS lock semantics |
 | SQLite migrations, graph history, and versioned summaries | Implemented foundation | Transactional, append-only provenance |
 | Database check, backup, restore, vacuum, diagnostics | Implemented foundation | Managed-state only; source files untouched |
-| Scope-aware source inventory | Implemented foundation | Hash-only cache; Git/managed-state/symlink exclusions; deterministic incremental changes |
+| Scope-aware source inventory | Implemented foundation | Hash-only cache; C#, JavaScript, JSX, TypeScript, and TSX classification; Git/managed-state/symlink exclusions; deterministic incremental changes |
 | C# project and solution discovery | Implemented foundation | Deterministic `.sln`, `.slnx`, and `.csproj` map with target frameworks, references, source roots, and parse diagnostics |
 | C# syntax facts and immutable graph analysis | Implemented foundation | Roslyn syntax only; snapshot hashes verified; syntax errors never activate a partial graph |
 | Language-semantic adapter contract | Implemented foundation | AOT-safe, versioned snapshot contract for symbols, definitions, references, calls, inheritance, types, syntax sites, ranges, capabilities, and diagnostics; providers are transport-agnostic |
@@ -17,7 +17,7 @@
 | Explicit .NET typed messaging provider | Implemented foundation | Unambiguous generic Publish/Send to explicit IConsumer contracts only; publish and send remain separate edge kinds |
 | Raw RabbitMQ topology provider | Implemented foundation | Literal BasicPublish, QueueBind, and BasicConsume create exchange/queue paths; dynamic or incomplete routes remain diagnostics |
 | Explicit .NET configuration read and JSON definition providers | Implemented foundation | Static reads and repository `appsettings*.json` definitions join virtual key nodes; dynamic, duplicate, malformed, missing, and environment-only cases remain explicit diagnostics |
-| C# LSP document synchronization | Implemented foundation | Hash-verified full-text open/close notifications through the same profile-driven engine; each immutable run uses a fresh session and any synchronization failure invalidates that semantic batch |
+| Configured-language LSP document synchronization | Implemented foundation | Hash-verified full-text open/close notifications through the same profile-driven engine; each immutable run uses a fresh session and any synchronization failure invalidates that semantic batch |
 | Standard-LSP semantic extraction | Implemented foundation | Declarative profile per language: extensions, markers, executable, arguments, language ID, identity prefix, symbol-kind mapping, and query bound. Hash-verified document symbols, references, and outgoing calls are normalized and committed atomically; definitions, inheritance, type facts, incoming calls, and semantic receiver resolution remain explicitly unavailable. |
 | Other configuration providers | Planned | Non-`appsettings` JSON, environment snapshots, and other configuration sources remain separate providers |
 | Graph revisions, versioned symbols, and bounded traversal | Implemented foundation | Immutable facts; revision-scoped dependency paths |
@@ -30,4 +30,5 @@
 | MCP tools and Codex hooks | Implemented integration foundation | Ten MCP tools over stdio and opt-in authenticated loopback HTTP; SessionStart and PostToolUse provide bounded context and after-the-fact deterministic turn stops. They cannot prevent prior writes and do not replace Git/CI enforcement. Stop finalization and live UI fan-out remain in progress. |
 | macOS | Implemented host target | Native AOT publish tested |
 | Linux | Planned next platform | No current release claim |
+| JavaScript, JSX, TypeScript, and TSX | Built-in Standard-LSP profiles | `.js`/`.mjs`/`.cjs`, `.jsx`, `.ts`/`.mts`/`.cts`, and `.tsx` use their correct LSP document language IDs with `typescript-language-server`; generic symbols, references, and outgoing calls are supported, while language-specific syntax/framework providers remain future work |
 | Other source languages | Standard-LSP semantic facts configurable now | Add a validated `language_server_profiles` entry; generic symbols, references, and outgoing calls need no host-language code, while language-specific syntax/framework providers remain future work |

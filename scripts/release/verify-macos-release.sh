@@ -13,6 +13,9 @@ trap 'rm -rf "$temporary_directory"' 0 HUP INT TERM
 tar -xzf "$archive" -C "$temporary_directory"
 release_directory=$(find "$temporary_directory" -mindepth 1 -maxdepth 1 -type d -name 'archy-*-osx-*' -print | head -n 1)
 [ -n "$release_directory" ] || fail "archive does not contain an Archy release directory"
+if find "$release_directory" -type f \( -name '.DS_Store' -o -name '._*' \) -print | grep -q .; then
+  fail "archive contains macOS metadata files"
+fi
 
 ARCHY_INSTALL_PREFIX="$temporary_directory/prefix" "$release_directory/install.sh"
 installed="$temporary_directory/prefix/bin/archy"

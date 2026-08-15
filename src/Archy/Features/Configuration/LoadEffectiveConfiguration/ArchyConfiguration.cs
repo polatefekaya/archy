@@ -15,6 +15,9 @@ public sealed record ArchyConfiguration(
     ScopeConfiguration Scope,
     HealthWeightConfiguration HealthWeights)
 {
+    /// <summary>Versioned, repository-owned weighting policy for explainable similarity retrieval.</summary>
+    public SimilarityConfiguration Similarity { get; init; } = SimilarityConfiguration.Default;
+
     public static ArchyConfiguration Default { get; } = new(
         SchemaVersion: 1,
         Workspace: new WorkspaceConfiguration(null),
@@ -29,16 +32,24 @@ public sealed record ArchyConfiguration(
                 "Microsoft.CodeAnalysis.LanguageServer",
                 ["--stdio"],
                 "csharp",
-                [
-                    new LanguageServerSymbolKindMapping("namespace", [3]),
-                    new LanguageServerSymbolKindMapping("type", [5, 10, 11, 23]),
-                    new LanguageServerSymbolKindMapping("method", [6, 9, 12]),
-                    new LanguageServerSymbolKindMapping("property", [7]),
-                    new LanguageServerSymbolKindMapping("field", [8]),
-                    new LanguageServerSymbolKindMapping("event", [24]),
-                    new LanguageServerSymbolKindMapping("parameter", [26]),
-                ],
-                MaxSymbolQueries: 10_000)
+                StandardLspSymbolKinds(),
+                MaxSymbolQueries: 10_000),
+            JavaScriptProfile(
+                id: "javascript",
+                languageId: "javascript",
+                extensions: [".js", ".mjs", ".cjs"]),
+            JavaScriptProfile(
+                id: "javascriptreact",
+                languageId: "javascriptreact",
+                extensions: [".jsx"]),
+            JavaScriptProfile(
+                id: "typescript",
+                languageId: "typescript",
+                extensions: [".ts", ".mts", ".cts"]),
+            JavaScriptProfile(
+                id: "typescriptreact",
+                languageId: "typescriptreact",
+                extensions: [".tsx"]),
         ],
         Providers: new ProviderConfiguration(
             DependencyInjection: true,
@@ -69,6 +80,32 @@ public sealed record ArchyConfiguration(
             Duplicates: 0.20,
             Documentation: 0.20,
             Decisions: 0.20));
+
+    private static LanguageServerProfileConfiguration JavaScriptProfile(
+        string id,
+        string languageId,
+        string[] extensions) =>
+        new(
+            id,
+            languageId,
+            extensions,
+            ["package.json", "jsconfig.json", "tsconfig.json"],
+            "typescript-language-server",
+            ["--stdio"],
+            id,
+            StandardLspSymbolKinds(),
+            MaxSymbolQueries: 10_000);
+
+    private static LanguageServerSymbolKindMapping[] StandardLspSymbolKinds() =>
+    [
+        new LanguageServerSymbolKindMapping("namespace", [3]),
+        new LanguageServerSymbolKindMapping("type", [5, 10, 11, 23]),
+        new LanguageServerSymbolKindMapping("method", [6, 9, 12]),
+        new LanguageServerSymbolKindMapping("property", [7]),
+        new LanguageServerSymbolKindMapping("field", [8]),
+        new LanguageServerSymbolKindMapping("event", [24]),
+        new LanguageServerSymbolKindMapping("parameter", [26]),
+    ];
 }
 
 public sealed record WorkspaceConfiguration(string? DisplayName);
@@ -144,3 +181,16 @@ public sealed record HealthWeightConfiguration(
     double Duplicates,
     double Documentation,
     double Decisions);
+
+public sealed record SimilarityConfiguration(
+    string PolicyVersion,
+    double EmbeddingWeight,
+    double SymbolWeight,
+    double SignatureWeight,
+    double DependencyNeighborhoodWeight,
+    double FileContextWeight,
+    double ModuleContextWeight)
+{
+    public static SimilarityConfiguration Default { get; } = new(
+        "hybrid-structural/v1", .25d, .25d, .15d, .15d, .10d, .10d);
+}

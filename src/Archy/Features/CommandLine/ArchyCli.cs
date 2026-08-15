@@ -8,6 +8,9 @@ using Archy.Features.CommandLine.Workspace;
 using Archy.Features.CommandLine.WorkspaceDatabase;
 using Archy.Features.CommandLine.Web;
 using Archy.Features.CommandLine.Embeddings;
+using Archy.Features.CommandLine.Diagnostics;
+using Archy.Features.CommandLine.Planning;
+using Archy.Features.CommandLine.Similarity;
 using Mediator;
 
 namespace Archy.Features.CommandLine;
@@ -48,6 +51,12 @@ public static class ArchyCli
             "config" => ConfigurationCli.RunAsync(args[1..], mediator, cancellationToken),
             "db" => WorkspaceDatabaseCli.RunAsync(args[1..], mediator, cancellationToken),
             "inventory" => SourceInventoryCli.RunAsync(args[1..], mediator, cancellationToken),
+            "doctor" => DoctorCli.RunAsync(args[1..], mediator, cancellationToken),
+            "architecture" => PlanningCli.RunAsync("architecture", args[1..], mediator, cancellationToken),
+            "change" => PlanningCli.RunAsync("change", args[1..], mediator, cancellationToken),
+            "impact" => PlanningCli.RunAsync("impact", args[1..], mediator, cancellationToken),
+            "refactor" => PlanningCli.RunAsync("refactor", args[1..], mediator, cancellationToken),
+            "similarity" => SimilarityCli.RunAsync(args[1..], mediator, cancellationToken),
             "analyze" => AnalyzeWorkspaceCli.RunAsync(args[1..], mediator, cancellationToken),
             "verify" => VerifyArchitectureCli.RunAsync(args[1..], mediator, cancellationToken),
             "baseline" => ArchitectureBaselineCli.RunAsync(args[1..], mediator, cancellationToken),
@@ -78,6 +87,13 @@ public static class ArchyCli
         Console.WriteLine("  archy workspace init [--path <path>] [--state-root <path>] [--config <path>] [--json]");
         Console.WriteLine("  archy config show [--path <path>] [--config <path>] [--state-root <path>] [--json]");
         Console.WriteLine("  archy inventory [--path <path>] [--state-root <path>] [--config <path>] [--json]");
+        Console.WriteLine("  archy doctor [--path <path>] [--state-root <path>] [--config <path>] [--json]");
+        Console.WriteLine("  archy doctor list [--path <path>] [--state-root <path>] [--config <path>] [--json]");
+        Console.WriteLine("  archy architecture explain --lookup <id|path|text> [--json]");
+        Console.WriteLine("  archy change plan --description <text> [--json]");
+        Console.WriteLine("  archy impact analyze --target <stable-id> [--json]");
+        Console.WriteLine("  archy refactor plan --target <stable-id> --intent <intent> [--json]");
+        Console.WriteLine("  archy similarity clusters|reintroduced [--json]");
         Console.WriteLine("  archy analyze [--path <path>] [--state-root <path>] [--config <path>] [--json]");
         Console.WriteLine("  archy verify [--path <path>] [--state-root <path>] [--config <path>] [--json | --sarif [--output <path>]]");
         Console.WriteLine("  archy baseline accept [--path <path>] [--state-root <path>] [--config <path>] [--json]");

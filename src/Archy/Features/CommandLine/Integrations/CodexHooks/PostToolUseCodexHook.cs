@@ -5,6 +5,9 @@ using Archy.Features.Configuration.LoadEffectiveConfiguration;
 using Archy.Features.Integrations.Codex.PostToolChangedPaths;
 using Archy.Features.Integrations.Mcp.RunMcpServer;
 using Archy.Features.Integrations.Codex.RecordHookEvents;
+using Archy.Features.Integrations.Codex.AdvisePostEditReuse;
+using Archy.Features.Graph.ReadGraphRevision;
+using Archy.Features.Workspaces.AcquireWorkspaceLock;
 using Archy.Features.Workspaces.LocateWorkspace;
 using Archy.Features.Workspaces.ReadRepositoryCommit;
 using Mediator;
@@ -84,9 +87,13 @@ internal sealed class PostToolUseCodexHook(IMediator mediator, ICodexHookEventRe
         if (introduced.Length == 0)
         {
             await RecordAsync(initializedWorkspace.StateLocation, input.SessionId, resolution.Value.CodePaths.Count, verification.Value.GraphRevision, false, [] , cancellationToken);
+            var reuse = await new PostEditReuseAdvisor(new GraphRevisionSnapshotReader(new WorkspaceLockManager(TimeProvider.System))).AdviseAsync(initializedWorkspace.StateLocation, resolution.Value.CodePaths, cancellationToken);
+            var guidance = reuse.IsSuccess && reuse.Value!.Candidates.Count > 0
+                ? $" Reuse guidance (persisted graph revision {reuse.Value.GraphRevision}, which may predate this edit): consider {reuse.Value.Candidates[0].StableId}; {reuse.Value.StrongestExplanation!.Recommendation}."
+                : " Persisted graph evidence may predate this edit; run `archy analyze` before relying on reuse guidance.";
             await CodexHookResponseWriter.PostToolUseAsync(
                 continueTurn: true,
-                $"Archy reviewed {resolution.Value.CodePaths.Count} changed code path(s); no introduced deterministic violation was found.");
+                $"Archy reviewed {resolution.Value.CodePaths.Count} changed code path(s); no introduced deterministic violation was found.{guidance}");
             return 0;
         }
 

@@ -81,6 +81,7 @@ using Archy.Features.Sessions.ReplayEventPages;
 using Archy.Features.Duplicates.DuplicateFindings;
 using Archy.Features.Duplicates.ReadDuplicateObservationPages;
 using Archy.Features.Placement.ClusterRevisions;
+using Archy.Features.Similarity.BuildSimilarityClusters;
 using Archy.Features.Placement.ReadClusterMemberPages;
 using Archy.Features.Health.HealthSnapshots;
 using Archy.Features.Health.ReadHealthComponentPages;
@@ -212,6 +213,7 @@ services.AddSingleton<IPostRevisionAgentsPublisher, PostRevisionAgentsPublisher>
 services.AddSingleton<IDuplicateFindingRepository, DuplicateFindingRepository>();
 services.AddSingleton<IDuplicateObservationPageReader, DuplicateObservationPageReader>();
 services.AddSingleton<IClusterRevisionRepository, ClusterRevisionRepository>();
+services.AddSingleton<ISimilarityClusterRepository, SimilarityClusterRepository>();
 services.AddSingleton<IClusterMemberPageReader, ClusterMemberPageReader>();
 services.AddSingleton<IHealthSnapshotRepository, HealthSnapshotRepository>();
 services.AddSingleton<IHealthComponentPageReader, HealthComponentPageReader>();

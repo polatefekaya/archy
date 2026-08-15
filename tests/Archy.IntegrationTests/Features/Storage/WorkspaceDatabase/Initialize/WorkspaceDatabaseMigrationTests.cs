@@ -21,7 +21,7 @@ public sealed class WorkspaceDatabaseMigrationTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(17, result.Value.SchemaVersion);
+        Assert.Equal(19, result.Value.SchemaVersion);
         await SqliteAssertions.AssertBootstrapAsync(target.Location.DatabasePath, target.Location.WorkspaceId);
 
         var backups = Directory.GetFiles(target.Location.DatabaseBackupDirectory, "*.db");
@@ -82,7 +82,7 @@ public sealed class WorkspaceDatabaseMigrationTests
 
         var defaultCatalog = new WorkspaceDatabaseMigrationCatalog();
         var failingMigration = WorkspaceDatabaseMigration.Create(
-            18,
+            20,
             "simulate_interrupted_migration",
             """
             CREATE TABLE migration_rollback_probe (id INTEGER PRIMARY KEY);
@@ -101,7 +101,7 @@ public sealed class WorkspaceDatabaseMigrationTests
         Assert.False(failed.IsSuccess);
         Assert.Equal("storage_error", failed.Problem!.Code);
         Assert.Equal(
-            17L,
+            19L,
             await SqliteTestDatabase.ScalarLongAsync(
                 initialized.Value.StateLocation.DatabasePath,
                 "SELECT MAX(version) FROM schema_migrations;"));
@@ -117,7 +117,7 @@ public sealed class WorkspaceDatabaseMigrationTests
             "configuration-hash",
             CancellationToken.None);
         Assert.True(recovered.IsSuccess);
-        Assert.Equal(17, recovered.Value.SchemaVersion);
+        Assert.Equal(19, recovered.Value.SchemaVersion);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class WorkspaceDatabaseMigrationTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(17, result.Value.SchemaVersion);
+        Assert.Equal(19, result.Value.SchemaVersion);
         await SqliteAssertions.AssertActiveGraphRevisionAsync(
             target.Location.DatabasePath,
             target.Location.WorkspaceId,

@@ -33,6 +33,7 @@ public sealed class FindSimilarMcpToolTests
         Assert.Equal("cached", response.RootElement.GetProperty("structuredContent").GetProperty("embeddingEvidence").GetString());
         var candidate = response.RootElement.GetProperty("structuredContent").GetProperty("candidates").EnumerateArray().First();
         Assert.Contains(candidate.GetProperty("evidence").EnumerateArray(), evidence => evidence.GetProperty("kind").GetString() == "embedding");
+        Assert.Contains(candidate.GetProperty("rawEvidence").EnumerateArray(), evidence => evidence.GetProperty("kind").GetString() == "Embedding" && !evidence.GetProperty("available").GetBoolean());
     }
 
     [Fact]
@@ -54,6 +55,36 @@ public sealed class FindSimilarMcpToolTests
 
         Assert.True(fromFile.IsSuccess);
         Assert.True(fromCode.IsSuccess);
+    }
+
+    [Fact]
+    public async Task NeverEchoesSubmittedCodeOrSecretLikeContentInTheMcpResponse()
+    {
+        using var fixture = WorkspaceStateFixture.Create(); var initialized = await fixture.InitializeAsync(); Assert.True(initialized.IsSuccess);
+        var node = new GraphNodeFact("type:Sessions", "class", "Sample.Sessions", "CreateSession", "src/Sessions.cs", 1, 1, "test", 1, "{}", new string('a', 64));
+        await GraphRevisionTestBuilder.CommitAsync(initialized.Value.StateLocation, [node]);
+        const string marker = "ARCHY_PRIVATE_SNIPPET_7F91";
+        using var arguments = JsonDocument.Parse($$"""{"sourceCode":"public string Token() => \"{{marker}}\";"}""");
+
+        var result = await new FindSimilarMcpTool().ExecuteAsync(new("find_similar", arguments.RootElement.Clone(), new(fixture.Repository.Root, initialized.Value.StateLocation)), CancellationToken.None);
+
+        Assert.True(result.IsSuccess); Assert.DoesNotContain(marker, result.ResultJson!, StringComparison.Ordinal); Assert.DoesNotContain("public string Token", result.ResultJson!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EmitsConfiguredLayerEvidenceWhenBothGraphDeclarationsHaveOneAssignedLayer()
+    {
+        using var fixture = WorkspaceStateFixture.Create(); var initialized = await fixture.InitializeAsync(); Assert.True(initialized.IsSuccess);
+        var source = GraphRevisionTestBuilder.Node("method:CreateSession", "aaaaaaaaaaaaaaaa") with { FilePath = "src/Application/CreateSession.cs", DisplayName = "CreateSession", CanonicalKey = "Application.CreateSession" };
+        var target = GraphRevisionTestBuilder.Node("method:CreateSessionHandler", "bbbbbbbbbbbbbbbb") with { FilePath = "src/Application/CreateSessionHandler.cs", DisplayName = "CreateSession", CanonicalKey = "Application.CreateSession" };
+        await GraphRevisionTestBuilder.CommitAsync(initialized.Value.StateLocation, [source, target]);
+        var configuration = ArchyConfiguration.Default with { Layers = [new("Application", ["src/Application/**"], [])] };
+        using var arguments = JsonDocument.Parse("""{"query":"create session","sourceStableId":"method:CreateSession"}""");
+
+        var result = await new FindSimilarMcpTool(configurationOverride: configuration).ExecuteAsync(new("find_similar", arguments.RootElement.Clone(), new(fixture.Repository.Root, initialized.Value.StateLocation)), CancellationToken.None);
+
+        Assert.True(result.IsSuccess); using var response = JsonDocument.Parse(result.ResultJson!); var candidate = Assert.Single(response.RootElement.GetProperty("structuredContent").GetProperty("candidates").EnumerateArray());
+        var module = Assert.Single(candidate.GetProperty("rawEvidence").EnumerateArray(), evidence => evidence.GetProperty("kind").GetString() == "ModuleContext"); Assert.True(module.GetProperty("available").GetBoolean()); Assert.Equal(1d, module.GetProperty("rawScore").GetDouble());
     }
 
     [Fact]

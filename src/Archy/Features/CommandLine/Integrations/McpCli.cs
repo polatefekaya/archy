@@ -46,6 +46,7 @@ public static class McpCli
 
     private static McpToolCatalog CreateCatalog(IMediator mediator, IServiceProvider? serviceProvider) => new([
         new GetDependentsMcpTool(),
+        new GetDoctorReadinessMcpTool(mediator),
         new CheckViolationMcpTool(mediator),
         new GetModuleRulesMcpTool(mediator),
         new CheckDuplicateMcpTool(),
@@ -55,6 +56,15 @@ public static class McpCli
             serviceProvider?.GetService<IEmbeddingCacheResolver>(),
             serviceProvider?.GetService<IEmbeddingModelProviderResolver>(),
             serviceProvider?.GetService<IRepositoryAiConsentPolicy>()),
+        new WhyNotReuseMcpTool(),
+        new GetSimilarityClusterMcpTool(),
+        new FindReintroducedMcpTool(),
+        new ImpactAnalysisMcpTool(),
+        new PlanChangeMcpTool(),
+        new SafeRefactorMcpTool(),
+        new ExplainArchitectureMcpTool(),
+        new PreflightChangeMcpTool(mediator),
+        new ComposeChangeSummaryMcpTool(),
         new SuggestPlacementMcpTool(),
         new RecordDecisionMcpTool(serviceProvider?.GetService<IHookEventPublisher>()),
         new GetDecisionsMcpTool(),

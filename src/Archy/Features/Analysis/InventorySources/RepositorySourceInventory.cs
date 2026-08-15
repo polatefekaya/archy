@@ -248,9 +248,15 @@ public sealed class RepositorySourceInventory(
     }
 
     private static SourceLanguage ClassifyLanguage(string repositoryRelativePath) =>
-        repositoryRelativePath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-            ? SourceLanguage.CSharp
-            : SourceLanguage.Unknown;
+        Path.GetExtension(repositoryRelativePath).ToLowerInvariant() switch
+        {
+            ".cs" => SourceLanguage.CSharp,
+            ".js" or ".mjs" or ".cjs" => SourceLanguage.JavaScript,
+            ".jsx" => SourceLanguage.JavaScriptReact,
+            ".ts" or ".mts" or ".cts" => SourceLanguage.TypeScript,
+            ".tsx" => SourceLanguage.TypeScriptReact,
+            _ => SourceLanguage.Unknown,
+        };
 
     private static IReadOnlyList<SourceFileChange> CalculateChanges(
         IReadOnlyList<SourceFile> files,
@@ -339,6 +345,10 @@ public sealed class RepositorySourceInventory(
             var language = reader.GetString(1) switch
             {
                 "csharp" => SourceLanguage.CSharp,
+                "javascript" => SourceLanguage.JavaScript,
+                "javascriptreact" => SourceLanguage.JavaScriptReact,
+                "typescript" => SourceLanguage.TypeScript,
+                "typescriptreact" => SourceLanguage.TypeScriptReact,
                 "unknown" => SourceLanguage.Unknown,
                 _ => throw new InvalidOperationException("The source inventory cache contains an unsupported language value."),
             };
@@ -388,6 +398,10 @@ public sealed class RepositorySourceInventory(
     private static string ToDatabase(SourceLanguage language) => language switch
     {
         SourceLanguage.CSharp => "csharp",
+        SourceLanguage.JavaScript => "javascript",
+        SourceLanguage.JavaScriptReact => "javascriptreact",
+        SourceLanguage.TypeScript => "typescript",
+        SourceLanguage.TypeScriptReact => "typescriptreact",
         SourceLanguage.Unknown => "unknown",
         _ => throw new ArgumentOutOfRangeException(nameof(language), language, "Unknown source language."),
     };

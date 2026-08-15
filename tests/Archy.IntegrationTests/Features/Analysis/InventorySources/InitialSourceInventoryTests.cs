@@ -5,6 +5,31 @@ namespace Archy.IntegrationTests.Features.Analysis.InventorySources;
 
 public sealed class InitialSourceInventoryTests
 {
+    [Theory]
+    [InlineData("src/App.js", SourceLanguage.JavaScript)]
+    [InlineData("src/App.mjs", SourceLanguage.JavaScript)]
+    [InlineData("src/App.cjs", SourceLanguage.JavaScript)]
+    [InlineData("src/App.jsx", SourceLanguage.JavaScriptReact)]
+    [InlineData("src/App.ts", SourceLanguage.TypeScript)]
+    [InlineData("src/App.mts", SourceLanguage.TypeScript)]
+    [InlineData("src/App.cts", SourceLanguage.TypeScript)]
+    [InlineData("src/App.tsx", SourceLanguage.TypeScriptReact)]
+    [InlineData("src/UPPER.TSX", SourceLanguage.TypeScriptReact)]
+    public async Task InitialInventoryClassifiesJavaScriptAndTypeScriptFamilies(
+        string repositoryRelativePath,
+        SourceLanguage expectedLanguage)
+    {
+        using var fixture = await SourceInventoryFixture.CreateAsync();
+        await fixture.WriteRepositoryFileAsync(repositoryRelativePath, "export const value = 1;");
+
+        var result = await fixture.SynchronizeAsync();
+
+        Assert.True(result.IsSuccess);
+        var file = Assert.Single(result.Value.Files);
+        Assert.Equal(expectedLanguage, file.Language);
+        Assert.Empty(result.Value.ParseCandidates);
+    }
+
     [Fact]
     public async Task InitialInventoryUsesScopeRulesGitIgnoreAndBuiltInExclusions()
     {

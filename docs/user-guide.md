@@ -30,9 +30,26 @@ The web host binds to loopback only. It serves the graph, bounded traversal, pro
 
 Use `archy mcp stdio` for a local MCP client. The Codex plugin in `plugins/archy` uses that transport. Start a session, preflight a change, record decisions, and end the session through the provided MCP tools. A post-write hook can stop further agent work after a deterministic violation, but no hook can claim to undo a write that already happened.
 
+Run `archy doctor --path . --json` for a read-only readiness report before initialization or when an integration is degraded. `archy doctor list --path . --json` inventories all effective language profiles. Both commands avoid analysis, migrations, LSP launches, and model calls.
+
 ## Find similar existing code
 
 Use the `find_similar` MCP tool before introducing a new service, handler, or abstraction. It ranks persisted graph candidates with separately reported symbol, structural-signature, and dependency-neighborhood evidence. Pass an existing `sourceStableId` to compare dependency neighborhoods. Passing both `sourceStableId` and `embeddingModel` additionally enables cached cosine-similarity evidence only when compatible vectors already exist for that exact model; the read-only tool never sends source code or generates a new embedding. Missing graph or vector evidence is reported as an abstention or unavailable evidence, never as a negative claim that no similar code exists.
+
+## Plan without editing
+
+The planning adapters read existing graph state and never edit the worktree:
+
+```sh
+archy architecture explain --lookup <stable-id-or-path> --json
+archy change plan --description "add a session capability" --file src/Sessions/CreateSession.cs --json
+archy impact analyze --target <stable-id> --json
+archy refactor plan --target <stable-id> --intent move --destination src/NewArea/Target.cs --json
+```
+
+Their MCP counterparts are advisory as well. Run `archy analyze` when you need fresh graph facts, then use `archy verify --path .` for deterministic delivery enforcement.
+
+To inspect or materialize conservative reuse families, use `archy similarity clusters --json` or `archy similarity clusters --build --json`. Building writes only an immutable local workspace-state revision, never the worktree. Use `archy similarity reintroduced --stable-id <id> --json` to check bounded removed-capability history.
 
 ## Index embeddings
 
@@ -60,4 +77,4 @@ Workspace state, including graph revisions, summaries, decisions, and sessions, 
 
 ## Limitations
 
-Initial language support is C#. LSP profiles are configuration driven so other standard-LSP languages can be added without host-specific registrations, but a profile must declare its executable, initialization contract, source extension set, and semantic limits. A missing profile, unavailable LSP, model outage, or sidecar outage is surfaced as degraded coverage—not inferred as healthy architecture.
+C# has built-in syntax and framework analysis. JavaScript, JSX, TypeScript, and TSX sources are inventoried directly and have built-in standard-LSP profiles backed by `typescript-language-server`; install it together with `typescript` to enable semantic symbols, references, and outgoing calls. Other languages remain configuration-driven. A missing or unavailable LSP, model outage, or sidecar outage is surfaced as degraded coverage—not inferred as healthy architecture.

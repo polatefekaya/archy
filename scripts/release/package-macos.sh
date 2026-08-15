@@ -9,6 +9,9 @@ version=${1:-}
 architecture=${2:-}
 [ "$#" -eq 2 ] || fail "usage: sh scripts/release/package-macos.sh <X.Y.Z> <arm64|x64>"
 sh "$root/scripts/release/version.sh" validate "$version"
+[ "$(sh "$root/scripts/release/version.sh" current)" = "$version" ] || fail "requested package version does not match eng/Version.props"
+plugin_version=$(sed -n 's/.*"version": "\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/p' "$root/plugins/archy/.codex-plugin/plugin.json")
+[ "$plugin_version" = "$version" ] || fail "plugin manifest version does not match package version"
 case "$architecture" in arm64|x64) ;; *) fail "architecture must be arm64 or x64" ;; esac
 
 output_directory=${ARCHY_RELEASE_OUTPUT_DIRECTORY:-"$root/artifacts/release"}
@@ -19,7 +22,10 @@ mkdir -p "$output_directory"
 if [ "${ARCHY_RELEASE_NO_RESTORE:-false}" != true ]; then
   # Restore must use the exact Native AOT publish property set. Otherwise
   # --no-restore publish can miss ILCompiler's computed assembly inputs.
-  dotnet restore "$root/src/Archy/Archy.csproj" --runtime "osx-$architecture" \
+  # dotnet restore --runtime populates RuntimeIdentifiers but can leave Native AOT's
+  # host-specific ILCompiler inputs selected when cross-publishing. Set the singular
+  # RuntimeIdentifier property so the following --no-restore publish uses the target RID.
+  dotnet restore "$root/src/Archy/Archy.csproj" -p:RuntimeIdentifier="osx-$architecture" \
     -p:SelfContained=true -p:PublishAot=true -p:PublishSingleFile=true
 fi
 
@@ -42,6 +48,7 @@ cp -R "$temporary_directory/publish/wwwroot" "$stage/wwwroot"
 cp -R "$root/plugins/archy" "$stage/plugins/archy"
 cp -R "$root/sidecars/jscpd" "$stage/sidecars/jscpd"
 cp -R "$root/sidecars/louvain" "$stage/sidecars/louvain"
+find "$stage" -type f \( -name '.DS_Store' -o -name '._*' \) -delete
 cp "$root/scripts/release/install-macos.sh" "$stage/install.sh"
 cp "$root/scripts/release/uninstall-macos.sh" "$stage/uninstall.sh"
 chmod 755 "$stage/install.sh" "$stage/uninstall.sh"

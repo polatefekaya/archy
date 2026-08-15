@@ -7,12 +7,14 @@ fail() { printf '%s\n' "archy-version: $1" >&2; exit 64; }
 root=$(CDPATH= cd "$(dirname "$0")/../.." && pwd)
 version_file=${ARCHY_VERSION_FILE:-"$root/eng/Version.props"}
 plugin_manifest=${ARCHY_PLUGIN_MANIFEST:-"$root/plugins/archy/.codex-plugin/plugin.json"}
+readme=${ARCHY_README:-"$root/README.md"}
 version=${1:-}
 
 [ "$#" -eq 1 ] || fail "usage: $0 <X.Y.Z>"
 sh "$root/scripts/release/version.sh" validate "$version"
 [ -f "$version_file" ] || fail "version file is missing: $version_file"
 [ -f "$plugin_manifest" ] || fail "plugin manifest is missing: $plugin_manifest"
+[ -f "$readme" ] || fail "README is missing: $readme"
 
 temporary_file=$(mktemp "${version_file}.XXXXXX") || fail "could not create a temporary version file"
 trap 'rm -f "$temporary_file"' 0 HUP INT TERM
@@ -39,4 +41,25 @@ awk -v version="$version" '
   END { if (updated != 1) exit 42 }
 ' "$plugin_manifest" > "$temporary_manifest" || fail "plugin manifest must contain exactly one semantic version"
 mv "$temporary_manifest" "$plugin_manifest"
+temporary_readme=$(mktemp "${readme}.XXXXXX") || fail "could not create a temporary README"
+awk -v version="$version" '
+  /Archy is a local .* Version `[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*`/ {
+    sub(/Version `[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*`/, "Version `" version "`")
+    description_updated++
+  }
+  /^ARCHY_VERSION=[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$/ {
+    print "ARCHY_VERSION=" version
+    variable_updated++
+    next
+  }
+  /codex plugin marketplace add polatefekaya\/archy --ref v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/ {
+    sub(/--ref v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/, "--ref v" version)
+    plugin_updated++
+  }
+  { print }
+  END {
+    if (description_updated != 1 || variable_updated != 1 || plugin_updated != 1) exit 42
+  }
+' "$readme" > "$temporary_readme" || fail "README must contain exactly one product version, ARCHY_VERSION, and pinned plugin tag"
+mv "$temporary_readme" "$readme"
 trap - 0 HUP INT TERM

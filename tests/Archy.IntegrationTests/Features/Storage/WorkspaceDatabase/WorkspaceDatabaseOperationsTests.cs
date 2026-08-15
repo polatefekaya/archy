@@ -22,7 +22,7 @@ public sealed class WorkspaceDatabaseOperationsTests
         var check = await checker.CheckAsync(initialized.Value.StateLocation, CancellationToken.None);
         Assert.True(check.IsSuccess);
         Assert.True(check.Value.IsHealthy);
-        Assert.Equal(17, check.Value.SchemaVersion);
+        Assert.Equal(19, check.Value.SchemaVersion);
         Assert.Null(check.Value.ActiveGraphRevision);
 
         var backup = await CreateBackupCreator().CreateAsync(initialized.Value.StateLocation, CancellationToken.None);
@@ -69,7 +69,7 @@ public sealed class WorkspaceDatabaseOperationsTests
             backup.Value.BackupPath,
             CancellationToken.None);
         Assert.True(restored.IsSuccess);
-        Assert.Equal(17, restored.Value.SchemaVersion);
+        Assert.Equal(19, restored.Value.SchemaVersion);
         Assert.Equal(
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(backup.Value.BackupPath))),
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(initialized.Value.StateLocation.DatabasePath))));

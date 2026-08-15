@@ -7,6 +7,8 @@ using Archy.Features.Duplicates.IndexEmbeddings;
 using Archy.Features.Duplicates.SelectEmbeddingChunks;
 using Archy.Features.Memory.AuthorizeAiSourceSharing;
 using Archy.Features.Memory.ModelProviders.Contracts;
+using Archy.Features.Similarity.RetrieveHybridCandidates;
+using Archy.Features.Architecture.LayerMembership;
 using System.Security.Cryptography;
 using System.Text;
 using System.Globalization;
@@ -53,7 +55,7 @@ public sealed class FindSimilarMcpTool(
         }
         embeddingModel ??= effectiveConfiguration?.Model.EmbeddingModel;
         IReadOnlyList<SimilarCodeCandidate> candidates;
-        try { candidates = SimilarCodeFinder.Find(snapshot.Value, new SimilarCodeQuery(resolved.Query!, source, limit)); }
+        try { candidates = SimilarCodeFinder.Find(snapshot.Value, new SimilarCodeQuery(resolved.Query!, source, limit, ToSimilarityPolicy(effectiveConfiguration), ResolveLayerMembership(snapshot.Value, effectiveConfiguration))); }
         catch (ArgumentException exception) { return McpToolResult.Failure(exception.Message); }
         var embeddingStatus = "unavailable";
         var embeddingReason = "No configured compatible embedding evidence is available; structural evidence remains ranked and explainable.";
@@ -88,7 +90,7 @@ public sealed class FindSimilarMcpTool(
             }
             else if (semantic.Reason is not null) embeddingReason = semantic.Reason;
         }
-        var values = string.Join(',', candidates.Select(candidate => $"{{\"stableId\":{McpJson.String(candidate.StableId)},\"displayName\":{McpJson.String(candidate.DisplayName)},\"filePath\":{(candidate.FilePath is null ? "null" : McpJson.String(candidate.FilePath))},\"score\":{JsonNumber(candidate.Score)},\"evidence\":[{string.Join(',', candidate.Evidence.Select(e => $"{{\"kind\":{McpJson.String(e.Kind)},\"score\":{JsonNumber(e.Score)},\"reason\":{McpJson.String(e.Reason)}}}"))}]}}"));
+        var values = string.Join(',', candidates.Select(candidate => $"{{\"stableId\":{McpJson.String(candidate.StableId)},\"displayName\":{McpJson.String(candidate.DisplayName)},\"filePath\":{(candidate.FilePath is null ? "null" : McpJson.String(candidate.FilePath))},\"score\":{JsonNumber(candidate.Score)},\"evidence\":[{string.Join(',', candidate.Evidence.Select(e => $"{{\"kind\":{McpJson.String(e.Kind)},\"score\":{JsonNumber(e.Score)},\"reason\":{McpJson.String(e.Reason)}}}"))}],\"rawEvidence\":[{string.Join(',', (candidate.HybridEvidence ?? []).Select(e => $"{{\"kind\":{McpJson.String(e.Kind.ToString())},\"rawScore\":{JsonNumber(e.RawScore)},\"normalizedContribution\":{JsonNumber(e.NormalizedContribution)},\"available\":{McpJson.Boolean(e.IsAvailable)},\"detail\":{McpJson.String(e.Detail)}}}"))}]}}"));
         var text = candidates.Count == 0 ? "No persisted candidate matched the supplied evidence." : $"Found {candidates.Count} explainable similar-code candidate(s).";
         return McpToolResult.Success($"{{\"content\":[{{\"type\":\"text\",\"text\":{McpJson.String(text)}}}],\"structuredContent\":{{\"abstention\":{McpJson.Boolean(candidates.Count == 0)},\"candidates\":[{values}],\"embeddingEvidence\":{McpJson.String(embeddingStatus)},\"embeddingReason\":{McpJson.String(embeddingReason)},\"mutatedWorkingTree\":false}}}}");
     }
@@ -161,6 +163,24 @@ public sealed class FindSimilarMcpTool(
         public static SimilarInput Failure(string error) => new(null, null, error, SimilarInputKind.None);
     }
     private sealed record SemanticVector(IReadOnlyList<float>? Vector, string? Status, string? Reason);
+    private static HybridSimilarityPolicy ToSimilarityPolicy(ArchyConfiguration? configuration)
+    {
+        var similarity = configuration?.Similarity;
+        return similarity is null
+            ? HybridSimilarityPolicy.Default
+            : new HybridSimilarityPolicy(similarity.PolicyVersion, new HybridSimilarityWeights(
+                similarity.EmbeddingWeight, similarity.SymbolWeight, similarity.SignatureWeight,
+                similarity.DependencyNeighborhoodWeight, similarity.FileContextWeight, similarity.ModuleContextWeight));
+    }
+    private static Dictionary<string, string>? ResolveLayerMembership(GraphRevisionSnapshot snapshot, ArchyConfiguration? configuration)
+    {
+        if (configuration?.Layers.Length is not > 0) return null;
+        var resolved = new LayerMembershipResolver().Resolve(snapshot.Nodes, configuration.Layers);
+        if (!resolved.IsSuccess) return null;
+        var assigned = resolved.Value!.Where(static membership => membership.State == LayerMembershipState.Assigned && membership.LayerName is not null)
+            .ToDictionary(static membership => membership.NodeStableId, static membership => membership.LayerName!, StringComparer.Ordinal);
+        return assigned.Count == 0 ? null : assigned;
+    }
     private enum SimilarInputKind { None, Query, Code, File, Symbol }
     private static double Cosine(IReadOnlyList<float> left, IReadOnlyList<float> right) { var dot=0d; var a=0d; var b=0d; for(var i=0;i<left.Count;i++){dot+=(double)left[i]*right[i];a+=(double)left[i]*left[i];b+=(double)right[i]*right[i];} return a == 0 || b == 0 ? 0 : Math.Round(dot / Math.Sqrt(a*b),6); }
     private static string JsonNumber(double value) => value.ToString("R", CultureInfo.InvariantCulture);

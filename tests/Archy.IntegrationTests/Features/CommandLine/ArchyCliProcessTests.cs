@@ -37,6 +37,107 @@ public sealed class ArchyCliProcessTests
     }
 
     [Fact]
+    public async Task DoctorAndLanguageInventoryAreReadOnlyAndReturnStructuredReadiness()
+    {
+        using var fixture = TemporaryRepository.Create();
+        var stateRoot = Path.Combine(Path.GetTempPath(), $"archy-doctor-{Guid.NewGuid():N}");
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(fixture.Root, "archy.toml"), """
+                schema_version = 1
+
+                [[language_server_profiles]]
+                id = "typescript"
+                language_id = "typescript"
+                extensions = [".ts"]
+                markers = ["package.json"]
+                command = "typescript-language-server"
+                args = ["--stdio"]
+                symbol_identity_prefix = "ts"
+                max_symbol_queries = 7
+
+                [language_server_profiles.symbol_kinds]
+                namespace = [3]
+                type = [5]
+                method = [6]
+                property = [7]
+                field = [8]
+                event = [24]
+                parameter = [26]
+
+                [scope]
+                include = ["src/**/*.ts"]
+                """);
+            Directory.CreateDirectory(Path.Combine(fixture.Root, "src"));
+            Directory.CreateDirectory(Path.Combine(fixture.Root, "node_modules", "dependency"));
+            await File.WriteAllTextAsync(Path.Combine(fixture.Root, "package.json"), "{}");
+            await File.WriteAllTextAsync(Path.Combine(fixture.Root, "src", "App.ts"), "export const app = true;");
+            await File.WriteAllTextAsync(Path.Combine(fixture.Root, "node_modules", "dependency", "index.ts"), "export const dependency = true;");
+            var report = await ArchyProcess.RunAsync("doctor", "--path", fixture.Root, "--state-root", stateRoot, "--json");
+            var inventory = await ArchyProcess.RunAsync("doctor", "list", "--path", fixture.Root, "--state-root", stateRoot, "--json");
+
+            Assert.Equal(2, report.ExitCode);
+            Assert.Equal(2, inventory.ExitCode);
+            Assert.Equal(string.Empty, report.StandardError);
+            Assert.Equal(string.Empty, inventory.StandardError);
+            Assert.False(Directory.Exists(stateRoot));
+            using var reportPayload = JsonDocument.Parse(report.StandardOutput);
+            Assert.Contains(reportPayload.RootElement.GetProperty("Checks").EnumerateArray(), check => check.GetProperty("Id").GetString() == "workspace.database");
+            Assert.Contains(reportPayload.RootElement.GetProperty("Checks").EnumerateArray(), check => check.GetProperty("Id").GetString() == "embeddings.credential" && !check.GetProperty("Detail").GetString()!.Contains("OPENAI_API_KEY=", StringComparison.Ordinal));
+            using var inventoryPayload = JsonDocument.Parse(inventory.StandardOutput);
+            Assert.Contains(inventoryPayload.RootElement.EnumerateArray(), profile => profile.GetProperty("Id").GetString() == "csharp");
+            var typescript = Assert.Single(inventoryPayload.RootElement.EnumerateArray(), profile => profile.GetProperty("Id").GetString() == "typescript");
+            Assert.Equal(1, typescript.GetProperty("MatchingSourceFileCount").GetInt32());
+            Assert.Contains("package.json", typescript.GetProperty("MatchedMarkers").EnumerateArray().Select(static marker => marker.GetString()));
+        }
+        finally
+        {
+            if (Directory.Exists(stateRoot)) Directory.Delete(stateRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DoctorDoesNotMutateAnInitializedWorkspaceDatabase()
+    {
+        using var fixture = WorkspaceStateFixture.Create(); var initialized = await fixture.InitializeAsync(); Assert.True(initialized.IsSuccess);
+        var before = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(initialized.Value.StateLocation.DatabasePath)));
+        var result = await ArchyProcess.RunAsync("doctor", "--path", fixture.Repository.Root, "--state-root", fixture.StateRoot, "--json");
+        var after = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(initialized.Value.StateLocation.DatabasePath)));
+        Assert.Equal(0, result.ExitCode); Assert.Equal(before, after); Assert.Equal(string.Empty, result.StandardError);
+        using var payload = JsonDocument.Parse(result.StandardOutput); Assert.Contains(payload.RootElement.GetProperty("Checks").EnumerateArray(), check => check.GetProperty("Id").GetString() == "workspace.database" && check.GetProperty("Severity").GetString() == "Info");
+    }
+
+    [Fact]
+    public async Task PlanningCommandsDispatchThroughTheRealHostWithJsonContracts()
+    {
+        using var fixture = WorkspaceStateFixture.Create(); var initialized = await fixture.InitializeAsync(); Assert.True(initialized.IsSuccess);
+        var node = GraphRevisionTestBuilder.Node("node:planning", "aaaaaaaaaaaaaaaa") with { DisplayName = "PlanTarget", CanonicalKey = "Planning.PlanTarget" };
+        await GraphRevisionTestBuilder.CommitAsync(initialized.Value.StateLocation, [node]);
+        var explain = await ArchyProcess.RunAsync("architecture", "explain", "--lookup", node.StableId, "--path", fixture.Repository.Root, "--state-root", fixture.StateRoot, "--json");
+        var impact = await ArchyProcess.RunAsync("impact", "analyze", "--target", node.StableId, "--path", fixture.Repository.Root, "--state-root", fixture.StateRoot, "--json");
+        var summary = await ArchyProcess.RunAsync("change", "summary", "--base-revision", "1", "--path", fixture.Repository.Root, "--state-root", fixture.StateRoot, "--json");
+
+        Assert.Equal(0, explain.ExitCode); Assert.Equal(0, impact.ExitCode); Assert.Equal(0, summary.ExitCode);
+        using var explainJson = JsonDocument.Parse(explain.StandardOutput); Assert.Equal(node.StableId, explainJson.RootElement.GetProperty("ResolvedStableId").GetString());
+        using var impactJson = JsonDocument.Parse(impact.StandardOutput); Assert.Equal(node.StableId, impactJson.RootElement.GetProperty("TargetStableId").GetString());
+        using var summaryJson = JsonDocument.Parse(summary.StandardOutput); Assert.Equal(1, summaryJson.RootElement.GetProperty("BaseRevision").GetInt64());
+    }
+
+    [Fact]
+    public async Task SimilarityReadCommandsDispatchThroughTheRealHostWithoutCreatingClusters()
+    {
+        using var fixture = WorkspaceStateFixture.Create(); var initialized = await fixture.InitializeAsync(); Assert.True(initialized.IsSuccess);
+        var node = GraphRevisionTestBuilder.Node("node:similarity", "aaaaaaaaaaaaaaaa") with { DisplayName = "CreateSession", CanonicalKey = "Sessions.CreateSession", FilePath = "src/Sessions.cs" };
+        var peer = GraphRevisionTestBuilder.Node("node:similarity-peer", "bbbbbbbbbbbbbbbb") with { DisplayName = "CreateSession", CanonicalKey = "Sessions.CreateSession", FilePath = "src/Sessions.cs" };
+        await GraphRevisionTestBuilder.CommitAsync(initialized.Value.StateLocation, [node, peer]);
+        var clusters = await ArchyProcess.RunAsync("similarity", "clusters", "--path", fixture.Repository.Root, "--state-root", fixture.StateRoot, "--json");
+        var build = await ArchyProcess.RunAsync("similarity", "clusters", "--build", "--path", fixture.Repository.Root, "--state-root", fixture.StateRoot, "--json");
+        var reintroduced = await ArchyProcess.RunAsync("similarity", "reintroduced", "--stable-id", node.StableId, "--path", fixture.Repository.Root, "--state-root", fixture.StateRoot, "--json");
+        Assert.Equal(0, clusters.ExitCode); Assert.Equal("null", clusters.StandardOutput.Trim()); Assert.Equal(0, build.ExitCode); using var buildPayload = JsonDocument.Parse(build.StandardOutput); Assert.NotEmpty(buildPayload.RootElement.GetProperty("Clusters").EnumerateArray());
+        Assert.Equal(0, reintroduced.ExitCode); using var payload = JsonDocument.Parse(reintroduced.StandardOutput); Assert.True(payload.RootElement.GetProperty("Abstained").GetBoolean());
+    }
+
+    [Fact]
     public async Task DatabaseCheckUsesTheRealHostWithoutInitializingOrChangingState()
     {
         using var fixture = WorkspaceStateFixture.Create();
@@ -56,7 +157,7 @@ public sealed class ArchyCliProcessTests
         Assert.Equal(string.Empty, result.StandardError);
         using var payload = JsonDocument.Parse(result.StandardOutput);
         Assert.True(payload.RootElement.GetProperty("IsHealthy").GetBoolean());
-        Assert.Equal(17, payload.RootElement.GetProperty("SchemaVersion").GetInt32());
+        Assert.Equal(19, payload.RootElement.GetProperty("SchemaVersion").GetInt32());
         Assert.Equal(JsonValueKind.Null, payload.RootElement.GetProperty("ActiveGraphRevision").ValueKind);
     }
 

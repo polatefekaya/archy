@@ -281,6 +281,24 @@ public sealed class ArchyConfigurationLoader(
                 Problem.Validation("health_weights must have a positive total."));
         }
 
+        var similarityWeights = new[]
+        {
+            configuration.Similarity.EmbeddingWeight,
+            configuration.Similarity.SymbolWeight,
+            configuration.Similarity.SignatureWeight,
+            configuration.Similarity.DependencyNeighborhoodWeight,
+            configuration.Similarity.FileContextWeight,
+            configuration.Similarity.ModuleContextWeight,
+        };
+        if (string.IsNullOrWhiteSpace(configuration.Similarity.PolicyVersion) ||
+            configuration.Similarity.PolicyVersion.Length > 80 ||
+            similarityWeights.Any(static weight => double.IsNaN(weight) || double.IsInfinity(weight) || weight is < 0d or > 1d) ||
+            Math.Abs(similarityWeights.Sum() - 1d) > .000001d)
+        {
+            return ResultFactory.Failure<ArchyConfiguration>(
+                Problem.Validation("similarity requires a bounded policy_version and non-negative weights that sum to 1.0."));
+        }
+
         return ResultFactory.Success(configuration);
     }
 

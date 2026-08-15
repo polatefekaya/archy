@@ -21,6 +21,8 @@ internal static class WorkspaceDatabaseSchema
         WorkspaceDatabaseMigration.Create(15, "create_model_failure_work_queue", MigrationFifteenSql),
         WorkspaceDatabaseMigration.Create(16, "create_revision_aware_embedding_cache", MigrationSixteenSql),
         WorkspaceDatabaseMigration.Create(17, "create_duplicate_finding_lifecycle_history", MigrationSeventeenSql),
+        WorkspaceDatabaseMigration.Create(18, "create_revisioned_similarity_clusters", MigrationEighteenSql),
+        WorkspaceDatabaseMigration.Create(19, "index_revision_scoped_session_preflight_context", MigrationNineteenSql),
     ];
 
     internal const string CreateLegacyMigrationHistorySql = """
@@ -67,6 +69,11 @@ internal static class WorkspaceDatabaseSchema
             ON embedding_cache_entries(workspace_id, method_stable_id, model_id, content_hash);
         """;
 
+    private const string MigrationNineteenSql = """
+        CREATE INDEX ix_session_events_preflight_revision
+            ON session_events(workspace_id, session_id, event_type, graph_revision, sequence_number DESC);
+        """;
+
     private const string MigrationSeventeenSql = """
         CREATE TABLE duplicate_finding_lifecycle_events (
             lifecycle_event_id TEXT PRIMARY KEY,
@@ -81,6 +88,37 @@ internal static class WorkspaceDatabaseSchema
         );
         CREATE INDEX ix_duplicate_finding_lifecycle_active
             ON duplicate_finding_lifecycle_events(workspace_id, graph_revision, finding_id);
+        """;
+
+    private const string MigrationEighteenSql = """
+        CREATE TABLE similarity_cluster_revisions (
+            similarity_cluster_revision_id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL REFERENCES repositories(workspace_id),
+            graph_revision INTEGER NOT NULL REFERENCES graph_revisions(revision),
+            algorithm TEXT NOT NULL,
+            algorithm_version TEXT NOT NULL,
+            input_hash TEXT NOT NULL,
+            created_at_utc TEXT NOT NULL,
+            UNIQUE(workspace_id, graph_revision, algorithm, algorithm_version, input_hash)
+        );
+        CREATE TABLE similarity_cluster_identities (
+            similarity_cluster_id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL REFERENCES repositories(workspace_id),
+            label TEXT NOT NULL,
+            created_at_utc TEXT NOT NULL,
+            UNIQUE(workspace_id, label)
+        );
+        CREATE TABLE similarity_cluster_members (
+            similarity_cluster_revision_id TEXT NOT NULL REFERENCES similarity_cluster_revisions(similarity_cluster_revision_id),
+            similarity_cluster_id TEXT NOT NULL REFERENCES similarity_cluster_identities(similarity_cluster_id),
+            member_stable_id TEXT NOT NULL,
+            membership_score REAL NOT NULL CHECK(membership_score >= 0 AND membership_score <= 1),
+            evidence_summary_json TEXT NOT NULL,
+            member_ordinal INTEGER NOT NULL,
+            PRIMARY KEY(similarity_cluster_revision_id, similarity_cluster_id, member_stable_id)
+        );
+        CREATE INDEX ix_similarity_cluster_revisions_workspace_graph ON similarity_cluster_revisions(workspace_id, graph_revision, created_at_utc DESC);
+        CREATE INDEX ix_similarity_cluster_members_revision_cluster ON similarity_cluster_members(similarity_cluster_revision_id, similarity_cluster_id, member_ordinal);
         """;
 
     private const string MigrationTwoSql = """

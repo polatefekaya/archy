@@ -6,7 +6,7 @@ namespace Archy.IntegrationTests.Features.Configuration;
 public sealed class EffectiveConfigurationTests
 {
     [Fact]
-    public async Task LoadUsesTheBuiltInCsharpLanguageServerProfileWhenNoProfileIsConfigured()
+    public async Task LoadUsesBuiltInCsharpJavaScriptAndTypeScriptLanguageServerProfilesWhenNoneAreConfigured()
     {
         using var fixture = TemporaryRepository.Create();
 
@@ -21,6 +21,26 @@ public sealed class EffectiveConfigurationTests
         Assert.Equal("csharp", profile.Id);
         Assert.Equal("csharp", profile.LanguageId);
         Assert.Equal("Microsoft.CodeAnalysis.LanguageServer", profile.Command);
+        Assert.Equal(["--stdio"], profile.Arguments);
+
+        Assert.Collection(
+            result.Value.Configuration.LanguageServerProfiles.Where(static candidate => candidate.Id != "csharp").OrderBy(static candidate => candidate.Id, StringComparer.Ordinal),
+            javascript => AssertBuiltInWebProfile(javascript, "javascript", [".js", ".mjs", ".cjs"]),
+            javascriptReact => AssertBuiltInWebProfile(javascriptReact, "javascriptreact", [".jsx"]),
+            typescript => AssertBuiltInWebProfile(typescript, "typescript", [".ts", ".mts", ".cts"]),
+            typescriptReact => AssertBuiltInWebProfile(typescriptReact, "typescriptreact", [".tsx"]));
+    }
+
+    private static void AssertBuiltInWebProfile(
+        Archy.Features.Configuration.LoadEffectiveConfiguration.LanguageServerProfileConfiguration profile,
+        string languageId,
+        string[] extensions)
+    {
+        Assert.Equal(languageId, profile.Id);
+        Assert.Equal(languageId, profile.LanguageId);
+        Assert.Equal(extensions, profile.Extensions);
+        Assert.Equal(["package.json", "jsconfig.json", "tsconfig.json"], profile.Markers);
+        Assert.Equal("typescript-language-server", profile.Command);
         Assert.Equal(["--stdio"], profile.Arguments);
     }
 
@@ -81,6 +101,50 @@ public sealed class EffectiveConfigurationTests
         Assert.True(result.Value.Configuration.Providers.Cache);
         Assert.Equal(Path.Combine(configurationDirectory.Path, "state"), result.Value.StateRoot);
         Assert.Equal(4, result.Value.Sources.Length);
+    }
+
+    [Fact]
+    public async Task LoadParsesAndValidatesTheVersionedSimilarityPolicy()
+    {
+        using var fixture = TemporaryRepository.Create();
+        await File.WriteAllTextAsync(Path.Combine(fixture.Root, "archy.toml"), """
+            schema_version = 1
+
+            [similarity]
+            policy_version = "repository-hybrid/v2"
+            embedding_weight = 0.20
+            symbol_weight = 0.30
+            signature_weight = 0.15
+            dependency_neighborhood_weight = 0.15
+            file_context_weight = 0.10
+            module_context_weight = 0.10
+            """);
+
+        var result = await TestConfigurationFactory.CreateLoader().LoadAsync(
+            await LocateWorkspaceAsync(fixture), null, null, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("repository-hybrid/v2", result.Value.Configuration.Similarity.PolicyVersion);
+        Assert.Equal(.30d, result.Value.Configuration.Similarity.SymbolWeight);
+    }
+
+    [Fact]
+    public async Task LoadRejectsSimilarityWeightsThatDoNotSumToOne()
+    {
+        using var fixture = TemporaryRepository.Create();
+        await File.WriteAllTextAsync(Path.Combine(fixture.Root, "archy.toml"), """
+            schema_version = 1
+
+            [similarity]
+            embedding_weight = 0.90
+            symbol_weight = 0.90
+            """);
+
+        var result = await TestConfigurationFactory.CreateLoader().LoadAsync(
+            await LocateWorkspaceAsync(fixture), null, null, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("similarity", result.Problem!.Message, StringComparison.Ordinal);
     }
 
     [Fact]
