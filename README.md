@@ -9,7 +9,7 @@ Archy analyzes one Git repository at a time, stores its versioned architecture g
 - Where should a new capability live, and what evidence supports that answer?
 - Which decisions, summaries, and health signals apply to this area of the codebase?
 
-Archy is a local .NET 10 Native AOT application. Version `0.2.0` supports macOS on Apple Silicon and Intel. C# analysis is built in; JavaScript, JSX, TypeScript, and TSX semantic analysis uses the built-in standard-LSP profiles when `typescript-language-server` and `typescript` are available on `PATH`. It runs without a globally installed .NET runtime after release installation.
+Archy is a local .NET 10 Native AOT application. Version `0.2.1` supports macOS on Apple Silicon and Intel. C# analysis is built in; JavaScript, JSX, TypeScript, and TSX semantic analysis uses the built-in standard-LSP profiles when `typescript-language-server` and `typescript` are available on `PATH`. It runs without a globally installed .NET runtime after release installation.
 
 > Archy separates facts from advice. Only configured, deterministic, confidence-`1.0` graph facts can fail `archy verify`. Summaries, duplicate findings, placement suggestions, and health scores remain evidence-backed advisories.
 
@@ -43,7 +43,7 @@ Choose the path that matches what you want to do:
 Download the archive matching your Mac, verify its checksum, and run the included installer. `arm64` is Apple Silicon; `x64` is Intel.
 
 ```sh
-ARCHY_VERSION=0.2.0
+ARCHY_VERSION=0.2.1
 
 case "$(uname -m)" in
   arm64) ARCHY_ARCH=arm64 ;;
@@ -126,7 +126,7 @@ Archy’s Codex plugin starts `archy mcp stdio` for the current repository and c
 ### Install from the public Git marketplace
 
 ```sh
-codex plugin marketplace add polatefekaya/archy --ref v0.2.0
+codex plugin marketplace add polatefekaya/archy --ref v0.2.1
 codex plugin add archy@archy
 ```
 
