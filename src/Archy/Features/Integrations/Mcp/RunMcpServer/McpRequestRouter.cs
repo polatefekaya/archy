@@ -77,7 +77,7 @@ public sealed class McpRequestRouter(McpToolCatalog tools)
 
         var result = await tool!.ExecuteAsync(new McpToolInvocation(tool.Name, arguments, workspace), cancellationToken);
         return result.IsSuccess
-            ? Result(id, result.ResultJson)
+            ? Result(id, McpToolResponseComposer.Compose(result.ResultJson))
             : Error(id, -32003, result.ErrorMessage!);
     }
 

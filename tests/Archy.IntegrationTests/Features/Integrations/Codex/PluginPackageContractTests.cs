@@ -40,7 +40,7 @@ public sealed partial class PluginPackageContractTests
         Assert.Equal("archy codex-hook stop", Command(hookRoot, "Stop"));
 
         var readme = File.ReadAllText(Path.Combine(pluginRoot, "README.md"));
-        Assert.Contains("21 MCP tools", readme, StringComparison.Ordinal);
+        Assert.Contains("22 MCP tools", readme, StringComparison.Ordinal);
         Assert.Contains("SessionStart", readme, StringComparison.Ordinal);
         Assert.Contains("PostToolUse", readme, StringComparison.Ordinal);
         Assert.Contains("Stop", readme, StringComparison.Ordinal);

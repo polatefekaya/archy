@@ -26,4 +26,10 @@
   <ItemGroup>
     <Content Include="../../ui/archy-web/dist/**" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Protocol readers and response composers are internal by design. The test projects verify
+         them directly instead of widening the product's public surface to make them testable. -->
+    <InternalsVisibleTo Include="Archy.UnitTests" />
+    <InternalsVisibleTo Include="Archy.IntegrationTests" />
+  </ItemGroup>
 </Project>

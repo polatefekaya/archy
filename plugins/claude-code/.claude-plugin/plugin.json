@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "archy",
+  "displayName": "Archy",
+  "version": "0.2.1",
+  "description": "Architecture memory and deterministic delivery checks for C#, JavaScript, and TypeScript repositories.",
+  "author": {
+    "name": "Polat Efe Kaya",
+    "url": "https://github.com/polatefekaya"
+  },
+  "homepage": "https://github.com/polatefekaya/archy",
+  "repository": "https://github.com/polatefekaya/archy",
+  "license": "MIT",
+  "keywords": [
+    "architecture",
+    "static-analysis",
+    "dependency-graph",
+    "mcp",
+    "dotnet",
+    "typescript"
+  ]
+}

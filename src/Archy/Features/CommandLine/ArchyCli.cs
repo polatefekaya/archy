@@ -65,7 +65,7 @@ public static class ArchyCli
             "mcp" => McpCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
             "embeddings" => EmbeddingsCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
             "web" => WebCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
-            "codex-hook" => CodexHookCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
+            "codex-hook" or "agent-hook" => CodexHookCli.RunAsync(args[1..], mediator, serviceProvider, cancellationToken),
             _ => UnknownCommandAsync(),
         };
     }

@@ -28,6 +28,7 @@ public sealed class McpStdioProcessTests
         "plan_change",
         "preflight_change",
         "record_decision",
+        "resolve_symbol",
         "safe_refactor",
         "start_session",
         "suggest_placement",
@@ -81,7 +82,7 @@ public sealed class McpStdioProcessTests
             }
             using (responses[1])
             {
-                Assert.Equal(21, responses[1].RootElement.GetProperty("result").GetProperty("tools").GetArrayLength());
+                Assert.Equal(22, responses[1].RootElement.GetProperty("result").GetProperty("tools").GetArrayLength());
                 Assert.Contains(responses[1].RootElement.GetProperty("result").GetProperty("tools").EnumerateArray(), tool => tool.GetProperty("name").GetString() == "find_similar");
                 Assert.Contains(responses[1].RootElement.GetProperty("result").GetProperty("tools").EnumerateArray(), tool => tool.GetProperty("name").GetString() == "get_doctor_readiness");
                 Assert.Contains(responses[1].RootElement.GetProperty("result").GetProperty("tools").EnumerateArray(), tool => tool.GetProperty("name").GetString() == "plan_change");
@@ -175,6 +176,7 @@ public sealed class McpStdioProcessTests
         {
             ("check_violation", "{}"),
             ("get_dependents", $$"""{"stableId":{{targetJson}},"depth":1}"""),
+            ("resolve_symbol", """{"query":"SmokeTarget","limit":5}"""),
             ("get_doctor_readiness", "{}"),
             ("get_module_rules", $$"""{"stableId":{{targetJson}}}"""),
             ("check_duplicate", $$"""{"stableId":{{targetJson}}}"""),

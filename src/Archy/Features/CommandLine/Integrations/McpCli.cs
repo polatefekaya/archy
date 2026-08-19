@@ -45,6 +45,7 @@ public static class McpCli
     }
 
     private static McpToolCatalog CreateCatalog(IMediator mediator, IServiceProvider? serviceProvider) => new([
+        new ResolveSymbolMcpTool(),
         new GetDependentsMcpTool(),
         new GetDoctorReadinessMcpTool(mediator),
         new CheckViolationMcpTool(mediator),

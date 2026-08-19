@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "archy": {
+      "command": "archy",
+      "args": ["mcp", "stdio"]
+    }
+  }
+}

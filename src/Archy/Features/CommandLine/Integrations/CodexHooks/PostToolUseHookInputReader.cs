@@ -41,16 +41,31 @@ internal static class PostToolUseHookInputReader
         }
     }
 
+    /// <summary>Maps a host tool name onto the kind of change that tool performs.</summary>
+    /// <remarks>
+    /// Names arrive from more than one agent host: <c>apply_patch</c> is Codex, while
+    /// <c>MultiEdit</c> and <c>NotebookEdit</c> are Claude Code. An unmapped editing tool is not a
+    /// harmless omission — the write still lands and the architecture check is silently skipped
+    /// for it, which reads as "no findings". Keep every file-mutating tool of every supported host
+    /// in this switch.
+    /// </remarks>
     private static bool TryMapToolKind(string? toolName, out PostToolKind toolKind)
     {
-        toolKind = toolName switch
+        switch (toolName)
         {
-            "Bash" => PostToolKind.Bash,
-            "Edit" or "apply_patch" => PostToolKind.Edit,
-            "Write" => PostToolKind.Write,
-            _ => default,
-        };
-        return toolName is "Bash" or "Edit" or "apply_patch" or "Write";
+            case "Bash":
+                toolKind = PostToolKind.Bash;
+                return true;
+            case "Edit" or "MultiEdit" or "NotebookEdit" or "apply_patch":
+                toolKind = PostToolKind.Edit;
+                return true;
+            case "Write":
+                toolKind = PostToolKind.Write;
+                return true;
+            default:
+                toolKind = default;
+                return false;
+        }
     }
 
     private static string[] ReadKnownPaths(JsonElement input)
@@ -59,6 +74,10 @@ internal static class PostToolUseHookInputReader
         AddString(input, "path", paths);
         AddString(input, "file_path", paths);
         AddString(input, "filePath", paths);
+
+        // NotebookEdit reports its target under a distinct property name.
+        AddString(input, "notebook_path", paths);
+        AddString(input, "notebookPath", paths);
         if (input.TryGetProperty("paths", out var rawPaths) && rawPaths.ValueKind == JsonValueKind.Array)
         {
             foreach (var path in rawPaths.EnumerateArray())

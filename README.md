@@ -9,7 +9,7 @@ Archy analyzes one Git repository at a time, stores its versioned architecture g
 - Where should a new capability live, and what evidence supports that answer?
 - Which decisions, summaries, and health signals apply to this area of the codebase?
 
-Archy is a local .NET 10 Native AOT application. Version `0.2.0` supports macOS on Apple Silicon and Intel. C# analysis is built in; JavaScript, JSX, TypeScript, and TSX semantic analysis uses the built-in standard-LSP profiles when `typescript-language-server` and `typescript` are available on `PATH`. It runs without a globally installed .NET runtime after release installation.
+Archy is a local .NET 10 Native AOT application. Version `0.2.1` supports macOS on Apple Silicon and Intel. C# analysis is built in; JavaScript, JSX, TypeScript, and TSX semantic analysis uses the built-in standard-LSP profiles when `typescript-language-server` and `typescript` are available on `PATH`. It runs without a globally installed .NET runtime after release installation.
 
 > Archy separates facts from advice. Only configured, deterministic, confidence-`1.0` graph facts can fail `archy verify`. Summaries, duplicate findings, placement suggestions, and health scores remain evidence-backed advisories.
 
@@ -32,7 +32,9 @@ Choose the path that matches what you want to do:
 - Enforces configured layer coverage, illegal deterministic dependency directions, and deterministic cycles locally or in CI; exports SARIF for code scanning.
 - Serves a local React/Tailwind graph explorer with nodes, edges, evidence, blast radius, session replay, health, duplicate, and placement views.
 - Understands focused deterministic questions: `what uses …?`, `what does … use?`, and `what breaks if I delete …?`.
-- Provides Codex MCP preflight tools for rules, dependents, placement, duplicates, semantic similarity, sessions, decisions, and summary flushing.
+- Provides MCP preflight tools for rules, dependents, placement, duplicates, semantic similarity, sessions, decisions, and summary flushing, to Codex and Claude Code alike.
+- Resolves a plain type, member, or path name into graph stable identifiers with `resolve_symbol`, so a caller never has to construct one by hand.
+- Mirrors every tool's `structuredContent` payload into its `content` text block, so a client that reads only `content` still receives the answer rather than a count.
 - Adds opt-in Codex lifecycle guidance: session context, post-tool checks after `Bash`, `Edit`, or `Write`, and session finalization.
 - Keeps graph, decision, session, summary, backup, and diagnostic state outside the repository.
 
@@ -41,7 +43,7 @@ Choose the path that matches what you want to do:
 Download the archive matching your Mac, verify its checksum, and run the included installer. `arm64` is Apple Silicon; `x64` is Intel.
 
 ```sh
-ARCHY_VERSION=0.2.0
+ARCHY_VERSION=0.2.1
 
 case "$(uname -m)" in
   arm64) ARCHY_ARCH=arm64 ;;
@@ -124,7 +126,7 @@ Archy’s Codex plugin starts `archy mcp stdio` for the current repository and c
 ### Install from the public Git marketplace
 
 ```sh
-codex plugin marketplace add polatefekaya/archy --ref v0.2.0
+codex plugin marketplace add polatefekaya/archy --ref v0.2.1
 codex plugin add archy@archy
 ```
 

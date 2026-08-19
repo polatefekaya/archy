@@ -1,0 +1,31 @@
+{
+  "name": "archy",
+  "owner": {
+    "name": "Polat Efe Kaya",
+    "url": "https://github.com/polatefekaya"
+  },
+  "description": "Architecture memory and deterministic delivery checks for repositories, and the Claude Code integration for Archy.",
+  "plugins": [
+    {
+      "name": "archy",
+      "description": "Architecture memory and deterministic delivery checks for C#, JavaScript, and TypeScript repositories.",
+      "version": "0.2.1",
+      "source": "./plugins/claude-code",
+      "author": {
+        "name": "Polat Efe Kaya",
+        "url": "https://github.com/polatefekaya"
+      },
+      "license": "MIT",
+      "homepage": "https://github.com/polatefekaya/archy",
+      "repository": "https://github.com/polatefekaya/archy",
+      "keywords": [
+        "architecture",
+        "static-analysis",
+        "dependency-graph",
+        "mcp",
+        "dotnet",
+        "typescript"
+      ]
+    }
+  ]
+}
