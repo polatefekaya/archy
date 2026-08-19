@@ -9,7 +9,7 @@
     {
       "name": "archy",
       "description": "Architecture memory and deterministic delivery checks for C#, JavaScript, and TypeScript repositories.",
-      "version": "0.2.1",
+      "version": "0.2.0",
       "source": "./plugins/claude-code",
       "author": {
         "name": "Polat Efe Kaya",

@@ -8,6 +8,8 @@ root=$(CDPATH= cd "$(dirname "$0")/../.." && pwd)
 version_file=${ARCHY_VERSION_FILE:-"$root/eng/Version.props"}
 plugin_manifest=${ARCHY_PLUGIN_MANIFEST:-"$root/plugins/archy/.codex-plugin/plugin.json"}
 readme=${ARCHY_README:-"$root/README.md"}
+claude_manifest=${ARCHY_CLAUDE_PLUGIN_MANIFEST:-"$root/plugins/claude-code/.claude-plugin/plugin.json"}
+marketplace=${ARCHY_CLAUDE_MARKETPLACE:-"$root/.claude-plugin/marketplace.json"}
 version=${1:-}
 
 [ "$#" -eq 1 ] || fail "usage: $0 <X.Y.Z>"
@@ -15,6 +17,8 @@ sh "$root/scripts/release/version.sh" validate "$version"
 [ -f "$version_file" ] || fail "version file is missing: $version_file"
 [ -f "$plugin_manifest" ] || fail "plugin manifest is missing: $plugin_manifest"
 [ -f "$readme" ] || fail "README is missing: $readme"
+[ -f "$claude_manifest" ] || fail "Claude Code plugin manifest is missing: $claude_manifest"
+[ -f "$marketplace" ] || fail "Claude Code marketplace manifest is missing: $marketplace"
 
 temporary_file=$(mktemp "${version_file}.XXXXXX") || fail "could not create a temporary version file"
 trap 'rm -f "$temporary_file"' 0 HUP INT TERM
@@ -41,6 +45,23 @@ awk -v version="$version" '
   END { if (updated != 1) exit 42 }
 ' "$plugin_manifest" > "$temporary_manifest" || fail "plugin manifest must contain exactly one semantic version"
 mv "$temporary_manifest" "$plugin_manifest"
+
+# The Claude Code plugin manifest and its marketplace entry carry the same product version.
+# Both are shipped packages, so a release that bumps only the Codex manifest ships a stale one.
+for manifest in "$claude_manifest" "$marketplace"; do
+  temporary_claude=$(mktemp "${manifest}.XXXXXX") || fail "could not create a temporary manifest"
+  awk -v version="$version" '
+    /^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*",[[:space:]]*$/ {
+      match($0, /^[[:space:]]*/)
+      print substr($0, 1, RLENGTH) "\"version\": \"" version "\","
+      updated++
+      next
+    }
+    { print }
+    END { if (updated != 1) exit 42 }
+  ' "$manifest" > "$temporary_claude" || fail "manifest must contain exactly one semantic version: $manifest"
+  mv "$temporary_claude" "$manifest"
+done
 temporary_readme=$(mktemp "${readme}.XXXXXX") || fail "could not create a temporary README"
 awk -v version="$version" '
   /Archy is a local .* Version `[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*`/ {

@@ -82,10 +82,10 @@ jobs:
           sh scripts/release/set-version.sh "$version"
           sh scripts/release/test-version.sh
           git diff --check
-          if ! git diff --quiet -- eng/Version.props plugins/archy/.codex-plugin/plugin.json README.md; then
+          if ! git diff --quiet -- eng/Version.props plugins/archy/.codex-plugin/plugin.json plugins/claude-code/.claude-plugin/plugin.json .claude-plugin/marketplace.json README.md; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add eng/Version.props plugins/archy/.codex-plugin/plugin.json README.md
+            git add eng/Version.props plugins/archy/.codex-plugin/plugin.json plugins/claude-code/.claude-plugin/plugin.json .claude-plugin/marketplace.json README.md
             git commit -m "chore(release): v$version"
             git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"
           fi
@@ -110,7 +110,7 @@ jobs:
           dotnet-version: 10.0.x
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version-file: ui/archy-web/.nvmrc
           cache: npm
           cache-dependency-path: ui/archy-web/package-lock.json
       - run: sh scripts/release/test-version.sh
@@ -153,7 +153,7 @@ jobs:
           dotnet-version: 10.0.x
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version-file: ui/archy-web/.nvmrc
           cache: npm
           cache-dependency-path: ui/archy-web/package-lock.json
       - name: Build bundled web client
