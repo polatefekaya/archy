@@ -4,7 +4,7 @@ Archy reads one Git repository, builds a versioned graph of what depends on what
 
 It exists to answer the questions that are expensive to get wrong. What breaks if I delete this type. Does this change cross a boundary it is not allowed to cross. Where does this new capability belong. Is there already code that does the same thing.
 
-Archy is a local .NET 10 binary that needs no installed runtime once unpacked. Version `0.2.1` runs on macOS, on Apple Silicon and Intel. C# analysis is built in. JavaScript, JSX, TypeScript and TSX go through standard LSP profiles when `typescript-language-server` is on your `PATH`.
+Archy is a local .NET 10 binary that needs no installed runtime once unpacked. Version `0.2.2` runs on macOS, on Apple Silicon and Intel. C# analysis is built in. JavaScript, JSX, TypeScript and TSX go through standard LSP profiles when `typescript-language-server` is on your `PATH`.
 
 ## What it looks like
 
@@ -58,7 +58,7 @@ The same rule applies when a tool is missing. Without a language server Archy re
 ## Install
 
 ```sh
-ARCHY_VERSION=0.2.1
+ARCHY_VERSION=0.2.2
 
 case "$(uname -m)" in
   arm64) ARCHY_ARCH=arm64 ;;
@@ -163,7 +163,7 @@ The plugin ships 22 MCP tools, a skill that tells the agent when to reach for th
 ### Codex
 
 ```sh
-codex plugin marketplace add polatefekaya/archy --ref v0.2.1
+codex plugin marketplace add polatefekaya/archy --ref v0.2.2
 codex plugin add archy@archy
 ```
 
