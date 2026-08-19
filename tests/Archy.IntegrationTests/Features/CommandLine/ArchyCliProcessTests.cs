@@ -247,6 +247,58 @@ public sealed class ArchyCliProcessTests
     }
 
     [Fact]
+    public async Task VerifyBlocksWhenTwoPopulatedLayersHaveNoEnforceableEdge()
+    {
+        // Syntax-only analysis records `using` and `declares` edges, neither of which is
+        // confidence-1.0 enforceable. Two layers own code, a rule forbids the direction between
+        // them, and the gate still has nothing to test. That must read as a blocked gate, not a
+        // clean repository.
+        using var fixture = WorkspaceStateFixture.Create();
+        var initialized = await fixture.InitializeAsync();
+        Assert.True(initialized.IsSuccess);
+        await File.WriteAllTextAsync(
+            Path.Combine(fixture.Repository.Root, "archy.toml"),
+            """
+            schema_version = 1
+
+            [[layers]]
+            name = "Api"
+            include = ["src/Api/**"]
+            may_depend_on = ["Domain"]
+
+            [[layers]]
+            name = "Domain"
+            include = ["src/Domain/**"]
+            may_depend_on = []
+
+            [enforcement]
+            hard_edge_kinds = ["calls", "references", "inherits"]
+            """);
+        var apiPath = Path.Combine(fixture.Repository.Root, "src", "Api", "OrderEndpoint.cs");
+        var domainPath = Path.Combine(fixture.Repository.Root, "src", "Domain", "Order.cs");
+        Directory.CreateDirectory(Path.GetDirectoryName(apiPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(domainPath)!);
+        await File.WriteAllTextAsync(apiPath, "namespace Shop.Api; public sealed class OrderEndpoint { }");
+        await File.WriteAllTextAsync(domainPath, "using Shop.Api;\n\nnamespace Shop.Domain; public sealed class Order { }");
+
+        var result = await ArchyProcess.RunAsync(
+            "verify",
+            "--path",
+            fixture.Repository.Root,
+            "--state-root",
+            fixture.StateRoot,
+            "--json");
+
+        Assert.Equal(1, result.ExitCode);
+        using var payload = JsonDocument.Parse(result.StandardOutput);
+        Assert.False(payload.RootElement.GetProperty("IsCompliant").GetBoolean());
+        var reach = payload.RootElement.GetProperty("Evaluation").GetProperty("Reach");
+        Assert.True(reach.GetProperty("IsUnenforceable").GetBoolean());
+        Assert.Equal(0, reach.GetProperty("EligibleEdgeCount").GetInt32());
+        Assert.Equal(2, reach.GetProperty("PopulatedLayerCount").GetInt32());
+    }
+
+    [Fact]
     public async Task VerifyRunsTheCurrentGraphThroughTheRealHostCompositionRoot()
     {
         using var fixture = WorkspaceStateFixture.Create();

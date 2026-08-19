@@ -72,6 +72,9 @@ public static class ArchitectureSarifReportBuilder
                 new ArchitectureSarifRule(
                     "ARCHY003",
                     new ArchitectureSarifMessage("Hard configured dependency layers must not contain a cycle.")),
+                new ArchitectureSarifRule(
+                    "ARCHY004",
+                    new ArchitectureSarifMessage("Configured layer rules must be enforceable by at least one eligible graph edge.")),
             ]));
 
     private static ArchitectureSarifResult Result(
@@ -135,6 +138,7 @@ public static class ArchitectureSarifReportBuilder
         ArchitectureFindingKind.LayerCoverage => "ARCHY001",
         ArchitectureFindingKind.LayerDependency => "ARCHY002",
         ArchitectureFindingKind.DependencyCycle => "ARCHY003",
+        ArchitectureFindingKind.EnforcementUnavailable => "ARCHY004",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported architecture finding kind."),
     };
 

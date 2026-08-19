@@ -92,10 +92,22 @@ public sealed class LayerDependencyRuleEvaluator(
             return ResultFactory.Failure<LayerDependencyEvaluation>(cycles.Problem!);
         }
 
+        var reach = new EnforcementReach(
+            eligibleEdges.Length,
+            edges.Count,
+            membership.Value
+                .Where(static resolution => resolution.State == LayerMembershipState.Assigned && resolution.LayerName is not null)
+                .Select(static resolution => resolution.LayerName!)
+                .Distinct(StringComparer.Ordinal)
+                .Count(),
+            [.. enforcement.HardEdgeKinds.Distinct(StringComparer.Ordinal).OrderBy(static kind => kind, StringComparer.Ordinal)],
+            [.. edges.Select(static edge => edge.EdgeKind).Distinct(StringComparer.Ordinal).OrderBy(static kind => kind, StringComparer.Ordinal)]);
+
         return ResultFactory.Success(new LayerDependencyEvaluation(
             membership.Value,
             coverageIssues,
             cycles.Value,
-            [.. violations.OrderBy(static violation => violation.EdgeId, StringComparer.Ordinal)]));
+            [.. violations.OrderBy(static violation => violation.EdgeId, StringComparer.Ordinal)],
+            reach));
     }
 }

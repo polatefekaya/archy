@@ -24,7 +24,8 @@ public sealed class ArchitectureSarifReportBuilderTests
             run.GetProperty("tool").GetProperty("driver").GetProperty("rules").EnumerateArray(),
             rule => Assert.Equal("ARCHY001", rule.GetProperty("id").GetString()),
             rule => Assert.Equal("ARCHY002", rule.GetProperty("id").GetString()),
-            rule => Assert.Equal("ARCHY003", rule.GetProperty("id").GetString()));
+            rule => Assert.Equal("ARCHY003", rule.GetProperty("id").GetString()),
+            rule => Assert.Equal("ARCHY004", rule.GetProperty("id").GetString()));
 
         var results = run.GetProperty("results").EnumerateArray().ToArray();
         Assert.Equal(4, results.Length);
@@ -79,6 +80,22 @@ public sealed class ArchitectureSarifReportBuilderTests
         Assert.Equal("conflict", notification.GetProperty("properties").GetProperty("problemCode").GetString());
     }
 
+    [Fact]
+    public void PublishesARuleForEveryFindingKindSoSarifExportCannotCrashOnANewOne()
+    {
+        // RuleId throws on an unmapped kind, and it runs inside CI's SARIF path. A kind added to
+        // the enum without a rule here fails the delivery gate with a crash, not a finding.
+        using var document = JsonDocument.Parse(ArchitectureSarifReportBuilder.Build(Verification()));
+        var rules = document.RootElement
+            .GetProperty("runs")[0].GetProperty("tool").GetProperty("driver").GetProperty("rules")
+            .EnumerateArray()
+            .Select(static rule => rule.GetProperty("id").GetString())
+            .ToArray();
+
+        Assert.Equal(Enum.GetValues<ArchitectureFindingKind>().Length, rules.Length);
+        Assert.Contains("ARCHY004", rules);
+    }
+
     private static JsonElement Result(JsonElement[] results, string key) => Assert.Single(
         results,
         result => result.GetProperty("properties").GetProperty("findingKey").GetString() == key);
@@ -100,7 +117,7 @@ public sealed class ArchitectureSarifReportBuilderTests
             42,
             false,
             "rules:fixture",
-            new LayerDependencyEvaluation([], [], [], []),
+            new LayerDependencyEvaluation([], [], [], [], new EnforcementReach(1, 1, 1, ["references"], ["references"])),
             new ArchitectureBaselineComparison(
                 ArchitectureBaselineStatus.Compatible,
                 "/repo/archy.baseline.json",

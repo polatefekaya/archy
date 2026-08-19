@@ -1,6 +1,6 @@
 <!-- archy:begin -->
 ## Archy architecture snapshot
-Graph revision: 113
+Graph revision: 115
 
 ### Resolved layer conventions
 - ArchyProduct: includes src/**/*.cs; may depend on no declared external layer.

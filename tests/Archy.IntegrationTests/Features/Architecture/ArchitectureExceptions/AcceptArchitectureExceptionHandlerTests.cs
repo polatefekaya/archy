@@ -81,7 +81,7 @@ public sealed class AcceptArchitectureExceptionHandlerTests
         1,
         true,
         "rules:fixture",
-        new LayerDependencyEvaluation([], [], [], []),
+        new LayerDependencyEvaluation([], [], [], [], new EnforcementReach(1, 1, 1, ["references"], ["references"])),
         new ArchitectureBaselineComparison(
             ArchitectureBaselineStatus.Compatible,
             "/repo/archy.baseline.json",

@@ -28,7 +28,8 @@ public sealed class ArchitectureFindingFactoryTests
                 "Domain",
                 "Application",
                 Edge("edge:domain-application", "node:domain", "node:application"),
-                "Domain may not depend on Application.")]);
+                "Domain may not depend on Application.")],
+            new EnforcementReach(1, 1, 1, ["references"], ["references"]));
 
         var result = factory.Create(evaluation);
 
@@ -72,7 +73,8 @@ public sealed class ArchitectureFindingFactoryTests
                     "Application",
                     Edge("edge:a-call-site", "node:domain", "node:application"),
                     "Domain may not depend on Application."),
-            ]);
+            ],
+                new EnforcementReach(1, 1, 1, ["references"], ["references"]));
 
         var result = factory.Create(evaluation);
 

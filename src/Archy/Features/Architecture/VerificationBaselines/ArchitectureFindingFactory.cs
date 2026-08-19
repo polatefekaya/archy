@@ -16,6 +16,11 @@ public sealed class ArchitectureFindingFactory : IArchitectureFindingFactory
         }
 
         var findings = new List<ArchitectureFinding>();
+        if (evaluation.Reach is { IsUnenforceable: true })
+        {
+            findings.Add(EnforcementUnavailable(evaluation.Reach));
+        }
+
         findings.AddRange(evaluation.CoverageIssues.Select(Coverage));
         findings.AddRange(evaluation.Violations.Select(Dependency));
         findings.AddRange(evaluation.Cycles.Select(Cycle));
@@ -35,6 +40,35 @@ public sealed class ArchitectureFindingFactory : IArchitectureFindingFactory
                         StringComparer.Ordinal)
                     .First())
                 .OrderBy(static finding => finding.Key, StringComparer.Ordinal)]);
+    }
+
+    /// <summary>
+    /// Reports that the configured gate cannot fail, so a passing run proves nothing about the code.
+    /// </summary>
+    /// <remarks>
+    /// This is a deterministic, fully certain statement about the evaluated revision — the same
+    /// standard every other blocking finding meets — so it blocks rather than warns. A warning
+    /// here would be read as a passing gate, which is the outcome it exists to prevent.
+    /// </remarks>
+    private static ArchitectureFinding EnforcementUnavailable(EnforcementReach reach)
+    {
+        ArgumentNullException.ThrowIfNull(reach);
+        var configured = reach.ConfiguredEdgeKinds.Count == 0
+            ? "none"
+            : string.Join(", ", reach.ConfiguredEdgeKinds);
+        var observed = reach.ObservedEdgeKinds.Count == 0
+            ? "none"
+            : string.Join(", ", reach.ObservedEdgeKinds);
+        var message =
+            $"No graph edge satisfies the configured hard-edge policy, so no layer violation or dependency cycle can be reported. " +
+            $"Enforcement reads only confidence-1.0 edges of kind: {configured}. " +
+            $"This revision has {reach.TotalEdgeCount} edge(s) of kind: {observed}. " +
+            "Semantic analysis is usually missing: run 'archy doctor --path .' and install the language server its blocking check names, then re-run 'archy analyze'.";
+        return new ArchitectureFinding(
+            "enforcement-unavailable|hard-edge-policy",
+            ArchitectureFindingKind.EnforcementUnavailable,
+            message,
+            [new ArchitectureTarget(ArchitectureTargetKind.Rule, "enforcement-unavailable:hard-edge-policy")]);
     }
 
     private static ArchitectureFinding Coverage(LayerCoverageIssue issue)
